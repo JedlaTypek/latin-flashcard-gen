@@ -1,0 +1,25 @@
+# Virtuální prostředí a cache
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Verzovací systémy a konfigurace IDE/agentů
+.git/
+.gitignore
+.agents/
+.claude/
+.idea/
+.vscode/
+
+# Dokumenty a nepoužívané soubory v runtime
+*.doc
+*.ods
+.DS_Store
+
+# Docker soubory
+Dockerfile
+docker-compose*.yml
+.dockerignore
+README.md

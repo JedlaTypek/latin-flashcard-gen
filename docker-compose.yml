@@ -1,0 +1,18 @@
+services:
+  slovnicek-parser:
+    build: .
+    container_name: slovnicek-parser
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+    volumes:
+      # Umožňuje aktualizovat slovíčka a zapisovat změny z administrace:
+      - ./data:/app/data
+      - ./app.py:/app/app.py
+      - ./druhy.py:/app/druhy.py
+      - ./.env:/app/.env:ro

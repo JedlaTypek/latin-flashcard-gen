@@ -1,0 +1,432 @@
+Lekce;Latina;Čeština;Slovní druh;Konjugace;Deklinace
+1;a, ab, abs;"místně: od, s, z; o původci, původu, příčině: od, pro; časově: od, po (předl. s abl.)";Ostatní;;
+1;accipio, ere, cepi, ceptum;přijímám, beru, dostávám;Sloveso;3;
+1;ad;"k, ke, ku, na, do; u, při; vzhledem k, co do, podle (předl. s ak.)";Ostatní;;
+1;advenio, ire, veni, ventum;přicházím;Sloveso;4;
+1;altus, a, um;vysoký, hluboký;Přídavné jméno;;
+1;amen;opravdu, zajisté, staň se, amen;Ostatní;;
+1;amicus, i, m;přítel;Podstatné jméno;;2
+1;aqua, ae, f;voda;Podstatné jméno;;1
+1;ars, artis, f;"umění, dovednost, řemeslo; vědecká soustava";Podstatné jméno;;3
+1;"ave, avete (imper.; inf. : avere)";"bud' zdráv, vítán; bud'te zdrávi, vítáni";Ostatní;;
+1;benedictus, a, um;požehnaný, blahořečený;Přídavné jméno;;
+1;caecus, a, um;slepý;Přídavné jméno;;
+1;caelum, i, n;nebe, nebesa, obloha, nebeská klenba;Podstatné jméno;;2
+1;caeli, orum, m (pl.);nebe, nebesa, obloha, nebeská klenba (pl.);Podstatné jméno;;2
+1;colloquium, ii, n;rozmluva, rozhovor;Podstatné jméno;;2
+1;cotidianus /quottidianus, a, um;každodenní, denní, všední;Přídavné jméno;;
+1;cultus, us, m;"pěstování, vzdělávání, péče; uctívání; bohoslužba, bohopocta, kult";Podstatné jméno;;4
+1;cum;s, se (předl. s abl.);Ostatní;;
+1;de;o, z, ze (předl. s abl.);Ostatní;;
+1;debeo, ere, debui, debitum;jsem dlužen, povinen, zavázán, musím;Sloveso;2;
+1;debitor, oris, m;"dlužník; viník, hříšník";Podstatné jméno;;3
+1;debitum, i, n;"dluh; daň, závazek; vina";Podstatné jméno;;2
+1;Deus, i, m;Bůh;Podstatné jméno;;2
+1;dimitto, ere, misi, missum;"rozesílám, propouštím, rozpouštím; odpouštím";Sloveso;3;
+1;do, dare, dedi, datum;"dávám; vynakládám, uděluji, věnuji";Sloveso;1;
+1;dominus, i, m;"pán, hospodář, majitel, vládce; Hospodin";Podstatné jméno;;2
+1;"et; et - et";"a, i, také; i – i";Ostatní;;
+1;exemplum, i, n;příklad, vzor, ukázka, doklad, obraz;Podstatné jméno;;2
+1;exspecto, are, avi, atum;očekávám, čekám;Sloveso;1;
+1;facultas, atis, f;"možnost, příležitost, dovolení; schopnost; fakulta";Podstatné jméno;;3
+1;falsus, a, um;"oklamaný; klamný, nepravdivý, lživý, falešný";Přídavné jméno;;
+1;filius, ii, m;syn;Podstatné jméno;;2
+1;fio, fieri, factus sum;"stávám se, vznikám, jsem; jsem činěn (pas. ke slovesu facio)";Sloveso;nepravidelná;
+1;fructus, us, m;výnos, užitek, plod, ovoce, úroda;Podstatné jméno;;4
+1;gloria, ae, f;sláva, čest;Podstatné jméno;;1
+1;gratia, ae, f;"vděk, dík, půvab; milost";Podstatné jméno;;1
+1;in;v, ve, na, mezi (na otázku kde?) (předl. s abl.);Ostatní;;
+1;in;do, v, na, proti, vůči, až do (na otázku kam?) (předl. s ak.);Ostatní;;
+1;induco, ere, duxi, ductum;uvádím, zavádím, přivádím;Sloveso;3;
+1;iniustus, a, um;nespravedlivý, bezprávný, protiprávní;Přídavné jméno;;
+1;intra;"uvnitř, dovnitř; v, za, po (dobu) (předl. s ak.)";Ostatní;;
+1;lego, ere, legi, lectum;"sbírám, shromažďuji, vybírám; čtu";Sloveso;3;
+1;libero, are, avi, atum;osvobozuji, zprošťuji, zbavuji;Sloveso;1;
+1;lingua, ae, f;jazyk, řeč;Podstatné jméno;;1
+1;littera, ae, f;"písmeno; písmo, umění psát";Podstatné jméno;;1
+1;longus, a, um;dlouhý;Přídavné jméno;;
+1;magister, stri, m;"představený, správce, vůdce; učitel, rádce; mistr";Podstatné jméno;;2
+1;magnus, a, um;"velký, veliký; mocný, vznešený";Přídavné jméno;;
+1;malum, i, n;zlo, špatnost, neřest;Podstatné jméno;;2
+1;malus, a, um;zlý, špatný;Přídavné jméno;;
+1;mater, tris, f;matka;Podstatné jméno;;3
+1;memoria, ae, f;"paměť; památka, vzpomínka";Podstatné jméno;;1
+1;misereor, eri, miseritus / misertus sum alicuius;smilovávám se, slitovávám se nad někým;Sloveso;2;
+1;mors, mortis, f;smrt, úmrtí, skonání;Podstatné jméno;;3
+1;mulier, eris, f;žena, paní;Podstatné jméno;;3
+1;natura, ae, f;"narození, rod; příroda; přirozenost, povaha, podstata";Podstatné jméno;;1
+1;ne;ne, at' ne, kéž ne, byt' ne (záporka u imper. a konj.);Ostatní;;
+1;neuter, tra, um;"žádný z obou, ani jeden z obou; střední";Přídavné jméno;;
+1;nomen, inis, n;"jméno; název, titul; rod, kmen, národ";Podstatné jméno;;3
+1;nos(gen. nostri / nostrum. dat./abl. vobis);my;Zájmeno;;
+1;noster, nostra, nostrum;náš;Ostatní;;
+1;nunc;nyní, teď;Ostatní;;
+1;ordo, inis, m;"řada, řád, pořádek; stav, společenská vrstva; kněžské svěcení; řeholní řád";Podstatné jméno;;3
+1;oro, are, avi, atum;"mluvím, řečním; žádám, prosím; modlím se";Sloveso;1;
+1;panis, is, m;chléb;Podstatné jméno;;3
+1;pater, tris, m;otec;Podstatné jméno;;3
+1;peccator, oris, m;hříšník, provinilec;Podstatné jméno;;3
+1;philosophus, i, m;filozof, milovník moudrosti;Podstatné jméno;;2
+1;plenus, a, um;plný, naplněný, úplný;Přídavné jméno;;
+1;poena, ae, f;trest, odplata, pokuta;Podstatné jméno;;1
+1;poeta, ae, m;básník;Podstatné jméno;;1
+1;primus, a, um;první, přední, nejpřednější;Přídavné jméno;;
+1;pro;"před; pro, ve prospěch, za; podle (předl. s abl.)";Ostatní;;
+1;proprius, a, um;vlastní;Přídavné jméno;;
+1;qui, quae, quod;"který, jenž, kdo; a ten, a on";Zájmeno;;
+1;regnum, i, n;"království; řízení, nejvyšší moc, vláda";Podstatné jméno;;2
+1;repetitio, onis, f;opakování;Podstatné jméno;;3
+1;rosa, ae, f;růže;Podstatné jméno;;1
+1;sacer, cra, um;"posvátný, posvěcený, svatý; prokletý (= božstvu propadlý)";Přídavné jméno;;
+1;sanctifico, are, avi, atum;činím svatým, posvěcuji;Sloveso;1;
+1;sanctus, a, um;svatý, posvěcený, zasvěcený, nedotknutelný;Přídavné jméno;;
+1;sapientia, ae, f;moudrost;Podstatné jméno;;1
+1;sed;ale, avšak, však, nýbrž;Ostatní;;
+1;sicut;tak jako, stejně jako, jako;Ostatní;;
+1;spiritus, us, m;"duch; dech, vánek, vzduch; život";Podstatné jméno;;4
+1;studium, ii, n;"snaha, horlivost, píle; náklonnost, zaujatost, stranictví; věda, studium";Podstatné jméno;;2
+1;sum, esse, fui, -, futurus;jsem, existuji;Sloveso;nepravidelná;
+1;suus, a, um;svůj;Přídavné jméno;;
+1;terra, ae, f;"země; hlína, půda; kraj, krajina";Podstatné jméno;;1
+1;totus, a, um;celý, všechen;Přídavné jméno;;
+1;tu;ty;Zájmeno;;
+1;tuus, tua, tuum;tvůj;Ostatní;;
+1;venio, ire, veni, ventum;přicházím;Sloveso;4;
+1;venter, ventris, m;"břicho, žaludek; mateřský život";Podstatné jméno;;3
+1;vetus, eris;starý, starobylý, starodávný, dávný, dřívější;Přídavné jméno;;
+1;voluntas, atis, f;"vůle, chtění, přání; úmysl, rozhodnutí";Podstatné jméno;;3
+2;agricola, ae, m;rolník, zemědělec, sedlák;Podstatné jméno;;1
+2;amica, ae, f;přítelkyně;Podstatné jméno;;1
+2;ancilla, ae, f;služka, služebnice;Podstatné jméno;;1
+2;anima, ae, f;"duše, duch, život; vánek, dech";Podstatné jméno;;1
+2;appello, are, avi, atum;nazývám, jmenuji, oslovuji;Sloveso;1;
+2;audio, ire, ivi (ii), itum;slyším, poslouchám;Sloveso;4;
+2;bene;dobře;Ostatní;;
+2;benedico, ere, dixi, dictum;"dobrořečím, velebím; žehnám, světím";Sloveso;3;
+2;benedictio, onis, f;"dobrořečení, blahořečení, velebení; požehnání";Podstatné jméno;;3
+2;capio, ere, cepi, captum;"beru, zmocňuji se, chytám, zajímám; chápu";Sloveso;3;
+2;causa, ae, f;"příčina, důvod, podnět; věc, právní záležitost";Podstatné jméno;;1
+2;civis, is, m/f;občan /občanka;Podstatné jméno;;3
+2;clarus, a, um;jasný, světlý, zřejmý, slavný, proslulý;Přídavné jméno;;
+2;cognosco, ere, novi, nitum;"poznávám, dovídám se; pátrám, vyšetřuji";Sloveso;3;
+2;concipio, ere, cepi, ceptum;"sbírám, chápu; počínám";Sloveso;3;
+2;cornu, us, n;"roh, paroh; křídlo šiku";Podstatné jméno;;4
+2;crux, crucis, f;"kříž; mučidlo; mučení, trápení";Podstatné jméno;;3
+2;currus, us, m;"vůz, povoz; válečný, bitevní vůz; spřežení";Podstatné jméno;;4
+2;deleo, ere, evi, etum;ničím, hubím, vyhlazuji, zahlazuji;Sloveso;2;
+2;dies, ei, f;(určitý) den, lhůta, termín;Podstatné jméno;;5
+2;dies, ei, m;den;Podstatné jméno;;5
+2;dignus, a, um;důstojný, hodný, přiměřený, zasloužený;Přídavné jméno;;
+2;e, ex;"z, ze, s, se; mezi; pro, následkem; od, (hned) po; vzhledem k, podle (předl. s abl.)";Ostatní;;
+2;ecclesia, ae, f;"shromáždění, sněm; církevní shromáždění, křesťanská obec; církev; kostel";Podstatné jméno;;1
+2;educo, are, avi, atum;vychovávám, pěstuji;Sloveso;1;
+2;efficio, ere, feci, fectum;způsobuji, činím, vytvářím;Sloveso;3;
+2;ego;já;Zájmeno;;
+2;etiam;"a to již / hned; také již / hned; ještě, opět, také";Ostatní;;
+2;etiam;také, též, rovněž, dále, kromě toho, k tomu;Ostatní;;
+2;exsulto, are, avi, atum;vyskakuji, jásám, plesám;Sloveso;1;
+2;fabula, ae, f;vypravování, pověst, pohádka, bajka, smyšlenka;Podstatné jméno;;1
+2;filia, ae, f;dcera ;Podstatné jméno;;1
+2;forma, ae, f;tvar, vzhled, podoba, forma;Podstatné jméno;;1
+2;fortuna, ae, f;osud, úděl, náhoda, štěstí;Podstatné jméno;;1
+2;fortunae, arum, f;statky, majetek, bohatství;Podstatné jméno;;1
+2;genus, eris, n;rod, původ, potomstvo, pokolení;Podstatné jméno;;3
+2;impero, are, avi, atum;rozkazuji, poroučím, velím, vládnu;Sloveso;1;
+2;incarnatio, onis, f;vtělení;Podstatné jméno;;3
+2;iustitia, ae, f;spravedlnost;Podstatné jméno;;1
+2;laboro, are, avi, atum;pracuji, namáhám se, usiluji, přičiňuji se, strádám;Sloveso;1;
+2;laetitia, ae, f;radost, veselí, veselost;Podstatné jméno;;1
+2;laudo, are, avi, atum;chválím;Sloveso;1;
+2;magistra, ae, f;"představená, vůdkyně; učitelka";Podstatné jméno;;1
+2;mare, is, n;moře;Podstatné jméno;;3
+2;mens, mentis, f;mysl, rozum, myšlenka, úmysl;Podstatné jméno;;3
+2;modus, i, m;"míra; mez, omezení, způsob; takt. melodie, nápěv";Podstatné jméno;;2
+2;narro, are, avi, atum;vypravuji, vykládám, líčím, povídám, pravím;Sloveso;1;
+2;nisi;"jestliže ne, kdyby ne, ne-li; po záporu: leda, leč, než";Ostatní;;
+2;nomino, are, avi, atum;"jmenuji, nazývám jménem; jmenuji někoho něčím";Sloveso;1;
+2;non;ne, nikoli;Ostatní;;
+2;numerus, i, m;počet, číslo, množství;Podstatné jméno;;2
+2;nuntio, are, avi, atum;oznamuji, ohlašuji, zvěstuji;Sloveso;1;
+2;orno, are, avi, atum;"strojím, opatřuji; zbrojím; zdobím, krášlím";Sloveso;1;
+2;paenitentia / poenitentia, ae, f;"lítost, pokání, kajícnost; polepšení, napravení";Podstatné jméno;;1
+2;patria, ae, f;"otčina, vlast, rodná země; domovina, bydliště";Podstatné jméno;;1
+2;patriarcha, ae, m;"praotec; patriarcha";Podstatné jméno;;1
+2;per;"skrze, přes, po, v, za; pomocí, prostřednictvím (předl. s ak.)";Ostatní;;
+2;persona, ae, f;"osoba, povaha; maska (divadelní)";Podstatné jméno;;1
+2;pius, a, um;"čistý; zbožný, oddaný, vděčný; laskavý, dobrotivý";Přídavné jméno;;
+2;porto, are, avi, atum;"nesu, nosím; vezu, vozím; dopravuji";Sloveso;1;
+2;post;po, za (předl. s ak.);Ostatní;;
+2;principium, ii, n;"počátek, původ, vznik; prvek; základ, zásada, pravidlo, princip";Podstatné jméno;;2
+2;promissio, onis, f;slib, zaslíbení;Podstatné jméno;;3
+2;propheta, ae, m;prorok;Podstatné jméno;;1
+2;prudentia, ae, f;předvídavost, prozíravost, opatrnost, moudrost;Podstatné jméno;;1
+2;puella, ae, f;"dívka, děvče; dcera";Podstatné jméno;;1
+2;regna, ae, f;královna;Podstatné jméno;;1
+2;res, rei, f;"věc, předmět; skutečnost, podstata, látka, obsah";Podstatné jméno;;5
+2;resurrectio, onis, f;zmrtvýchvstání, vzkříšení;Podstatné jméno;;3
+2;saeculum, i, n;"věk, doba, století; lidský věk, pokolení, generace; časnost, světský stav, svět";Podstatné jméno;;2
+2;satis / sat;dosti, dost, dostatečně;Ostatní;;
+2;secundum;podle, vedle, hned po, shodně s něčím (předl. s ak.);Ostatní;;
+2;secundus, a, um;"druhý, následující; příznivý, šťastný";Přídavné jméno;;
+2;semper;vždy, vždycky, stále, neustále;Ostatní;;
+2;servus, i, m;otrok, sluha, služebník;Podstatné jméno;;2
+2;schola / scola, ae, f;"volný čas věnovaný studiím; přednáška, rozprava; škola";Podstatné jméno;;1
+2;si;"jestliže, -li; jestliže by, kdyby; třebas i, byt' i";Ostatní;;
+2;silva, ae, f;"les; houští; dřevo, keř, strom";Podstatné jméno;;1
+2;spero, are, avi, atum;"doufám, mám naději; očekávám";Sloveso;1;
+2;stella, ae, f;hvězda;Podstatné jméno;;1
+2;super;nad, na, přes, více než, kromě, mimo;Ostatní;;
+2;tempus, oris, n;"čas, doba, období; pravý čas, chvíle; okolnosti, poměry";Podstatné jméno;;3
+2;tenebrae, arum, f;tma, temnota;Podstatné jméno;;1
+2;trinitas, atis, f;trojice;Podstatné jméno;;3
+2;ut;"aby, at; kdyby; tak, že; třeba, byt' (i), i kdyby";Ostatní;;
+2;verbum, i, n;"slovo, výrok; sloveso";Podstatné jméno;;2
+2;victor, oris, m;vítěz;Podstatné jméno;;3
+2;video, ere, vidi, visum;"vidím, hledím, dívám se; dbám, starám se";Sloveso;2;
+2;vigilo, are, avi, atum;"bdím; jsem bdělý, ostražitý";Sloveso;1;
+2;virgo, inis, f;panna, dívka;Podstatné jméno;;3
+2;vita, ae, f;život, žití;Podstatné jméno;;1
+2;voco, are, avi, atum;"volám, povolávám, zvu; nazývám, jmenuji";Sloveso;1;
+3;aeternus, a, um;věčný, nesmrtelný, trvalý, nekonečný;Přídavné jméno;;
+3;ager, agri, m;"pole, role; pozemek";Podstatné jméno;;2
+3;agnosco, ere, novi, nitum;"poznávám, uznávám, přiznávám; chápu";Sloveso;3;
+3;agnus, i, m;jehně, beránek;Podstatné jméno;;2
+3;alienus, a, um;"cizí, jinému patřící; jiný, nenáležitý, vzdálený";Přídavné jméno;;
+3;amor, oris, m;láska;Podstatné jméno;;3
+3;aptus, a, um;"připojený, závislý; připravený, vhodný, způsobilý";Přídavné jméno;;
+3;argumentum, i, n;"důkaz, důvod; obsah";Podstatné jméno;;2
+3;aridus, a, um;vyschlý, suchý, vyprahlý;Přídavné jméno;;
+3;arma, orum, n;"zbraně, zbroj; náčiní, nářadí";Podstatné jméno;;2
+3;atque, zkráceně ac;a, i, také, a také, a přece, než, však;Ostatní;;
+3;beatus, a, um;blažený, šťastný, blahoslavený, požehnaný;Přídavné jméno;;
+3;bonus, a, um;dobrý;Přídavné jméno;;
+3;brevis, e;"krátký; úzký, těsný; stručný";Přídavné jméno;;
+3;canticum, i, n;"píseň, sólový zpěv; kantikum";Podstatné jméno;;2
+3;canto, are, avi, atum;"zpívám; hraji na něco; opěvuji, slavím, velebím";Sloveso;1;
+3;castra, orum, n;tábor, vojenské ležení;Podstatné jméno;;2
+3;circa;"kolem, okolo, podél; (kolem) dokola, vůkol (předl. s ak.)";Ostatní;;
+3;clamo, are, avi, atum;(hlasitě) volám, křičím;Sloveso;1;
+3;clemens, entis;mírný, klidný, laskavý, milostivý;Přídavné jméno;;
+3;cogitatio, onis, f;"myšlení, uvažování; myšlenka, úvaha; záměr, úmysl";Podstatné jméno;;3
+3;committo, ere, misi, missum;"spojuji, slučuji; dopouštím se, páchám; svěřuji, odevzdávám";Sloveso;3;
+3;confiteor, eri, fessus sum;vyznávám, doznávám, přiznávám (se);Sloveso;2;
+3;consilium, ii, n;"rada, porada; záměr, úmysl";Podstatné jméno;;2
+3;cor, cordis, n;"srdce; duch, duše, rozum, mysl";Podstatné jméno;;3
+3;coram;"tváří v tvář; veřejně, před očima; před někým, v přítomnosti něčí (předl. s abl.)";Ostatní;;
+3;decalogus, i, m;desatero;Podstatné jméno;;2
+3;desertum, i, n;poušť, opuštěné místo, pustina;Podstatné jméno;;2
+3;dextera, ae, f;pravice;Podstatné jméno;;1
+3;discipulus, i, m;"žák, učedník; stoupenec, následovník";Podstatné jméno;;2
+3;doceo, ere, docui, doctum;učím, poučuji, vyučuji, vykládám;Sloveso;2;
+3;dominica, ae, f [dies];den Páně, neděle;Podstatné jméno;;1
+3;dulcis, e;"sladký, chutný, lahodný; milý, drahý";Přídavné jméno;;
+3;erro, are, avi, atum;"bloudím, mýlím se; chybuji, hřeším";Sloveso;1;
+3;facio, ere, feci, factum;činím, konám, tvořím;Sloveso;3;
+3;fleo, ere, evi, etum;pláču, naříkám;Sloveso;2;
+3;frater, tris, m;bratr;Podstatné jméno;;3
+3;gemo, ere, ui, itum;lkám, sténám, naříkám;Sloveso;3;
+3;ideo;proto;Ostatní;;
+3;ille, illa, illud;"onen; on, ten; onen slavný, známý, proslulý";Zájmeno;;
+3;imperium, ii, n;rozkaz, nařízení, vláda, moc;Podstatné jméno;;2
+3;insula, ae, f;ostrov;Podstatné jméno;;1
+3;interpello, are, avi, atum;"přerušuji, namítám, dotazuji se; zastávám se";Sloveso;1;
+3;interrogo, are, avi, atum;ptám se, dotazuji se, vyslýchám;Sloveso;1;
+3;is, ea, id;"ten, ta, to; on, ona, ono";Zájmeno;;
+3;iustus, a, um;"spravedlivý; oprávněný, zasloužený, zákonitý";Přídavné jméno;;
+3;lacrima, ae, f;slza;Podstatné jméno;;1
+3;liber, bri, m;"kniha; spis, dílo";Podstatné jméno;;2
+3;liber, era, erum;svobodný, volný, nezávislý;Ostatní;;
+3;mandatum, i, n;"přikázání, příkaz, rozkaz; úkol, pověření, zmocnění";Podstatné jméno;;2
+3;maneo, ere, mansi, -, mansurus;zůstávám, trvám;Sloveso;2;
+3;meus, mea, meum;můj;Ostatní;;
+3;minimus, a, um;nejmenší;Přídavné jméno;;
+3;misericordia, ae, f;milosrdenství;Podstatné jméno;;1
+3;mitto, ere, misi, missum;posílám, vysílám, propouštím;Sloveso;3;
+3;moneo, ere, monui, monitum;"napomínám, varuji, kárám; upomínám, upozorňuji, připomínám";Sloveso;2;
+3;multus, a, um;mnohý, četný;Přídavné jméno;;
+3;mysterium, ii, n;tajemství;Podstatné jméno;;2
+3;nimis;příliš, nadmíru, velmi;Ostatní;;
+3;novus, a, um;"nový, čerstvý; nebývalý, neobyčejný; nezvyklý, nezkušený";Přídavné jméno;;
+3;oculus, i, m;"oko; zrak";Podstatné jméno;;2
+3;omissio, onis, f;opomenutí, vynechání, zanedbání;Podstatné jméno;;3
+3;omnipotens, entis;všemohoucí;Přídavné jméno;;
+3;omnis, e;"všechen, každý; celý";Přídavné jméno;;
+3;opus, eris, n;"dílo, práce, činnost; námaha, úsilí; voj. stavba, opevnění";Podstatné jméno;;3
+3;ostendo, ere, tendi, tentum / tensum;"ukazuji, dokazuji; projevuji";Sloveso;3;
+3;paro, are, avi, atum;"připravuji, strojím, chystám; zařizuji, zjednávám (si)";Sloveso;1;
+3;parvus, a, um;malý, skrovný, nepatrný;Přídavné jméno;;
+3;peccatum, i, n;hřích, provinění, vina;Podstatné jméno;;2
+3;pecco, are, avi, atum;hřeším, proviňuji se;Sloveso;1;
+3;populus, i, m;"lid, dav; národ, lidstvo";Podstatné jméno;;2
+3;post;vzadu, potom, později, nato;Ostatní;;
+3;praeceptum, i, n;"příkaz, přikázání; rada, návod, poučení, pravidlo";Podstatné jméno;;2
+3;precor, ari, atus sum;prosím, modlím se;Sloveso;1;
+3;puer, eri, m;"chlapec, hoch, dítě; otrok, služebník";Podstatné jméno;;2
+3;pulcher, pulchra, pulchrum;krásný, pěkný, hezký;Ostatní;;
+3;quia;protože, poněvadž, ježto;Ostatní;;
+3;quoniam;protože, poněvadž, neboť;Ostatní;;
+3;respondeo, ere, spondi, sponsum;"odpovídám; souhlasím, shoduji se; zodpovídám se (před soudem)";Sloveso;2;
+3;"salve; salvete";"buď zdráv / vítám; buďte zdrávi / vítáni";Ostatní;;
+3;salvo, ere, -, -;jsem zdráv;Sloveso;3;
+3;scriptum, i, n;"napsané, písmo; písemná práce, spis, kniha";Podstatné jméno;;2
+3;se;sebe, se (zájm. Zvratné);Zájmeno;;
+3;sedeo, ere, sedi, sessum;"sedím; zasedám; nečinně sedím, prodlévám; pevně sedím, vězím, trvám";Sloveso;2;
+3;sequor, sequi, secutus sum;"sleduji, následuji, jdu za někým; řídím se, zachovávám; stíhám, pronásleduji";Sloveso;3;
+3;spes, spei, f;naděje, očekávání;Podstatné jméno;;5
+3;studeo, ere, ui, -;zabývám se něčím, snažím se o něco, studuji něco (s dat.);Sloveso;2;
+3;suspiro, are, avi, atum;"zhluboka dýchám; vzdychám, sténám, toužím";Sloveso;1;
+3;tertius, a, um;třetí;Přídavné jméno;;
+3;valeo, ere, ui, -, valiturus;jsem silný, mocný, schopen, zdráv;Sloveso;2;
+3;verus, a, um;pravý, pravdivý, opravdový, skutečný;Přídavné jméno;;
+3;vester, vestra, vestrum;váš;Ostatní;;
+3;vir, i, m;"muž; choť; manžel; hrdina, rek; člověk";Podstatné jméno;;2
+3;vos;vy;Zájmeno;;
+4;adoro, are, avi, atum;klaním se, uctívám, modlím se;Sloveso;1;
+4;aestas, atis, f;léto;Podstatné jméno;;3
+4;ago, ere, egi, actum;ženu, honím, činím, konám, jednám, počínám si;Sloveso;3;
+4;amo, are, avi, atum;miluji, mám rád, mám zálibu, rád něco dělám;Sloveso;1;
+4;animal, alis, n;živočich, zvíře, živá bytost, živý tvor;Podstatné jméno;;3
+4;ante;před (předl. s ak.);Ostatní;;
+4;aperio, ire, aperui, apertum;otvírám;Sloveso;4;
+4;baptisma, atis, n / baptismus, i, m;křest;Podstatné jméno;;3
+4;bibo, ere, bibi, -, bibiturus;piji;Sloveso;3;
+4;caelestis, e;nebeský;Přídavné jméno;;
+4;caput, itis, n;"hlava; hlavní město; kapitola (v knize)";Podstatné jméno;;3
+4;caritas, atis, f;"láska, vážnost, úcta, oddanost; drahota";Podstatné jméno;;3
+4;carmen, inis, n;"báseň, píseň, zpěv; výrok, formule, věštba";Podstatné jméno;;3
+4;civitas, atis, f;"obec, město; občanství, občanské právo";Podstatné jméno;;3
+4;communicatio, onis, f;sdělení, sdílení, rozhovor, společenství;Podstatné jméno;;3
+4;concedo, ere, cessi, cessum;"ustupuji, odcházím; povoluji, dovoluji, připouštím; promíjím, odpouštím";Sloveso;3;
+4;corpus, oris, n;tělo, těleso;Podstatné jméno;;3
+4;corrigo, ere, rexi, rectum;opravuji, napravuji;Sloveso;3;
+4;custodio, ire, ivi, itum;"hlídám, střežím, chráním; vězním";Sloveso;4;
+4;defendo, ere, fendi, fensum;hájím, bráním, ochraňuji;Sloveso;3;
+4;dens, dentis, m;zub;Podstatné jméno;;3
+4;deprecatio, onis, f;prosba, odprošování, přímluva;Podstatné jméno;;3
+4;diligo, ere, lexi, lectum;vybírám (si), volím, vážím si, miluji;Sloveso;3;
+4;disco, ere, didici, -;"učím se; poznávám, dovídám se";Sloveso;3;
+4;divinus, a, um;božský, boží;Přídavné jméno;;
+4;duco, ere, duxi, ductum;"vedu, řídím, táhnu; mám za něco, domnívám se";Sloveso;3;
+4;exaudio, ire, ivi, itum;"jasně slyším, poslouchám; vyslyším";Sloveso;4;
+4;exemplar, aris, n;"obraz; vzor, příklad; opis, kopie";Podstatné jméno;;3
+4;fallo, ere, fefelli, falsum;"klamu, podvádím, činím nejistým; zatajuji, unikám";Sloveso;3;
+4;finio, ire, ivi (ii), itum;"ohraničuji, omezuji; určuji, stanovím; končím";Sloveso;4;
+4;fons, fontis, m;pramen, zdroj, zřídlo, studánka;Podstatné jméno;;3
+4;generatio, onis, f;"plození; pokolení, generace";Podstatné jméno;;3
+4;gladiator, oris, m;gladiátor, šermíř;Podstatné jméno;;3
+4;glorifico, are, avi, atum;oslavuji;Sloveso;1;
+4;ignis, is, m;oheň, plamen, požár, žár;Podstatné jméno;;3
+4;imago, inis, f;"obraz, podobizna, socha; podoba, postava; představa, ideál; přízrak, vidina";Podstatné jméno;;3
+4;impleo, ere, evi, etum;naplňuji, vyplňuji;Sloveso;2;
+4;invenio, ire, veni, ventum;nalézám, vynalézám, přicházím na něco;Sloveso;4;
+4;iter, itineris, n;pochod, chůze, cesta;Podstatné jméno;;3
+4;iubeo, ere, iussi, iussum;poroučím, přikazuji, rozkazuji, nařizuji;Sloveso;2;
+4;ius, iuris, n;"právo, pravomoc; právní postavení";Podstatné jméno;;3
+4;iuvenis, is, m;mladík, jinoch, mladý muž;Podstatné jméno;;3
+4;latus, eris, n;bok, strana;Podstatné jméno;;3
+4;laus, laudis, f;"chvála, pochvala; čest, sláva";Podstatné jméno;;3
+4;lavo, are, lavi, lautum / lotum / lavatum;myji, umývám, omývám, koupám;Sloveso;1;
+4;lex, legis, f;"zákon, právo, pravidlo; ustanovení, smlouva, podmínka";Podstatné jméno;;3
+4;lumen, inis, n;"světlo; svítilna, pochodeň; zrak, oči";Podstatné jméno;;3
+4;miles, itis, m;"vojín, voják; vojáci, vojsko; rytíř";Podstatné jméno;;3
+4;mos, moris, m;mrav, zvyk, obyčej, způsob;Podstatné jméno;;3
+4;mundo, are, avi, atum;čistím, očišťuji;Sloveso;1;
+4;mundus, i, m;svět, vesmír, země;Podstatné jméno;;2
+4;navis, is, f;loď;Podstatné jméno;;3
+4;nox, noctis, f;"noc; tma, temnota";Podstatné jméno;;3
+4;oppidum, i, n;"opevněné místo, pevnost; město, městečko";Podstatné jméno;;2
+4;oratio, onis, f;"řeč, mluva; projev, proslov; modlitba";Podstatné jméno;;3
+4;orbis, is, m;"kruh, kolo; okrsek zemský, země, svět";Podstatné jméno;;3
+4;os, oris, n;"ústa, obličej, tvář; otvor, ústí";Podstatné jméno;;3
+4;os, ossis, n;kost;Podstatné jméno;;3
+4;ostium, ii, n;"vchod, východ; dveře; ústí";Podstatné jméno;;2
+4;ovis, is, f;ovce;Podstatné jméno;;3
+4;pastor, oris, m;pastýř;Podstatné jméno;;3
+4;pax, pacis, f;"mír, pokoj, klid; smlouva";Podstatné jméno;;3
+4;periculum, i, n;"zkouška, pokus; nebezpečí; pohroma, zkáza";Podstatné jméno;;2
+4;peto, ere, ivi (ii), itum;"směřuji, napadám, útočím; žádám, prosím, ucházím se";Sloveso;3;
+4;plebs, plebis, f;"lid, dav; třída lidu, plebejové; chudina";Podstatné jméno;;3
+4;pono, ere, posui, positum;"kladu, stavím, pokládám, odkládám, dávám; vkládám, ukládám";Sloveso;3;
+4;potestas, atis, f;"moc, pravomoc, vláda, síla; možnost, schopnost";Podstatné jméno;;3
+4;propter;"blízko, vedle; pro, skrze, kvůli (předl. s ak.)";Ostatní;;
+4;protego, ere, texi, tectum;kryji, přikrývám, chráním;Sloveso;3;
+4;quaero, ere, sivi, situm;hledám, vyhledávám, dotazuji se, vyšetřuji;Sloveso;3;
+4;quam;"jak, jak velice, jak málo; jako, než; co, co možná";Ostatní;;
+4;quartus, a, um;čtvrtý;Přídavné jméno;;
+4;recipio, ere, cepi, ceptum;beru zpět, přijímám, přebírám;Sloveso;3;
+4;redemptor, oris, m;vykupitel;Podstatné jméno;;3
+4;rex, regis, m;"král, vladař, panovník; ředitel";Podstatné jméno;;3
+4;ritus, us, m;posvátný řád, obřad, ritus;Podstatné jméno;;4
+4;salvator, oris, m;zachránce, spasitel;Podstatné jméno;;3
+4;salvo, are, avi, atum;"uzdravuji, zachraňuji, zachovávám; spasím";Sloveso;1;
+4;sanguis, inis, m;krev;Podstatné jméno;;3
+4;scientia, ae, f;"vědění, znalost; učenost; věda, nauka";Podstatné jméno;;1
+4;scribo, ere, scripsi, scriptum;"ryji; píši, sepisuji, líčím";Sloveso;3;
+4;senex, is, m;stařec, stařeček;Podstatné jméno;;3
+4;sententia, ae, f;věta, výrok, soud, úsudek, myšlenka, návrh, hlas;Podstatné jméno;;1
+4;sitio, ire, ivi (ii), -;"žízním, jsem vyprahlý; dychtím";Sloveso;4;
+4;sol, solis, m;"slunce; sluneční světlo / paprsek / teplo; den";Podstatné jméno;;3
+4;solus, a, um;sám, samotný, jediný, samojediný, pouhý;Přídavné jméno;;
+4;soror, oris, f;sestra;Podstatné jméno;;3
+4;sub;"pod (kde?); pod, za, v (kdy?) (předl. s abl.)";Ostatní;;
+4;sub;"pod (kam?); za, v, na (o čase) (předl. s ak.)";Ostatní;;
+4;sumo, ere, sumpsi, sumptum;"beru, přijímám; požívám; vynakládám";Sloveso;3;
+4;suscipio, ere, cepi, ceptum;"přijímám, ujímám se; beru na sebe, podstupuji";Sloveso;3;
+4;taceo, ere, ui, itum;"mlčím; zamlčuji";Sloveso;2;
+4;tollo, ere, sustuli, sublatum;"zdvihám, pozvedám; beru na sebe; snímám, odnáším, odstraňuji";Sloveso;3;
+4;urbs, urbis, f;město (větší, hlavní);Podstatné jméno;;3
+4;ut (zesíleně uti);jak, jako, jakoby, jakmile, kdykoli;Ostatní;;
+4;vis, f;"síla, moc, schopnost; násilí";Podstatné jméno;;3
+5;acer, acris, e;"ostrý, rázný; tuhý, přísný, krutý";Přídavné jméno;;
+5;adiuvo, are, iuvi, iutum;pomáhám (někomu), podporuji (někoho);Sloveso;1;
+5;admirabilis, e;podivuhodný, podivný;Přídavné jméno;;
+5;aequalis, e;rovný, rovný věkem, stejný, současný;Přídavné jméno;;
+5;ambulo, are, avi, atum;procházím se, chodím (sem tam);Sloveso;1;
+5;annalis [liber], is, m (obvykle pl. annales, ium, m);"letopis; letopisy, annály; kronika";Podstatné jméno;;3
+5;avaritia, ae, f;lakota, hrabivost, zištnost;Podstatné jméno;;1
+5;blandior, iri, itus sum;lichotím, pochlebuji, lahodím;Sloveso;4;
+5;cado, ere, cecidi, -, casurus;"padám, klesám; podléhám, hynu";Sloveso;3;
+5;celeber, celebris, celebre;hojně navštěvovaný, slavnostní, slavný, proslulý;Přídavné jméno;;
+5;celer, eris, e;rychlý, hbitý;Přídavné jméno;;
+5;consentio, ire, sensi, sensum;stejně smýšlím, souhlasím, shoduji se;Sloveso;4;
+5;cupio, ere, ivi (ii), itum;žádám, přeji si, toužím, dychtím;Sloveso;3;
+5;curo, are, avi, atum;pečuji, starám se, obstarávám, opatřuji;Sloveso;1;
+5;equus, i, m;kůň, hřebec;Podstatné jméno;;2
+5;ferrum, i, n;"železo; výrobek ze železa, meč, nůž, nůžky, pluh";Podstatné jméno;;2
+5;fortis, e;pevný, silný, statečný, udatný, rázný;Přídavné jméno;;
+5;gaudeo, ere, gavisus sum;raduji se, těším se;Sloveso;2;
+5;gigno, ere, genui, genitum;plodím, rodím;Sloveso;3;
+5;gravis, e;těžký: vážný, důležitý, důrazný, pádný, významný;Přídavné jméno;;
+5;ingenium, ii, n;vrozená povaha, schopnost, nadání, talent;Podstatné jméno;;2
+5;invicem;"střídavě, navzájem, vzájemně; spolu, mezi sebou";Ostatní;;
+5;ipse, ipsa, ipsum;sám, on sám, právě on;Zájmeno;;
+5;labor, oris, m;"práce, námaha, úsilí; dílo, čin; útrapa, strast";Podstatné jméno;;3
+5;locus, i, m;místo;Podstatné jméno;;2
+5;loquor, loqui, locutus sum;mluvím, hovořím, říkám, promlouvám;Sloveso;3;
+5;lux, lucis, f;světlo, lesk, záře, den;Podstatné jméno;;3
+5;maledico, ere, dixi, dictum;tupím, laji, zlořečím, rouhám se;Sloveso;3;
+5;mendax, acis;"lživý, prolhaný; klamný, falešný";Přídavné jméno;;
+5;miror, ari, atus sum aliquid (ak.);divím se (něčemu), obdivuji (něco);Sloveso;1;
+5;morior, mori, mortuus sum, moriturus;umírám;Sloveso;3;
+5;nascor, nasci, natus sum;rodím se, pocházím, vznikám;Sloveso;3;
+5;negotium, ii, n;zaměstnání, práce, úkol, činnost, veřejná činnost;Podstatné jméno;;2
+5;patior, pati, passus sum;"trpím, snáším; připouštím, dovoluji";Sloveso;3;
+5;porta, ae, f;brána, vchod;Podstatné jméno;;1
+5;proximus, a, um;"nejbližší, nedávno minulý, poslední; subst. bližní";Přídavné jméno;;
+5;proximus, i, m;bližní;Podstatné jméno;;2
+5;prudens, entis;rozumný, rozvážný, opatrný;Přídavné jméno;;
+5;quintus, a, um;pátý;Přídavné jméno;;
+5;quis, quid;"kdo ?, co ?; někdo, něco (zájm. tázací)";Zájmeno;;
+5;quisque, quidque;každý;Zájmeno;;
+5;resisto, ere, stiti, -;zastavuji se, odporuji, stavím se na odpor;Sloveso;3;
+5;salutaris, e;"zdravý, léčivý; prospěšný, užitečný; spasitelný";Přídavné jméno;;
+5;sapiens, entis;moudrý, rozumný;Přídavné jméno;;
+5;sapiens, entis, m;moudry muž, mudrc;Podstatné jméno;;3
+5;sentio, ire, sensi, sensum;vnímám, pozoruji, cítím, poznávám;Sloveso;4;
+5;serpens, entis, m/f;had, plaz;Podstatné jméno;;3
+5;servio, ire, ivi (ii), itum;"sloužím; otročím";Sloveso;4;
+5;similis, e;podobný;Přídavné jméno;;
+5;surgo, ere, surrexi, surrectum;vstávám, povstávám, zdvihám se;Sloveso;3;
+5;utilit, e;užitečný, prospěšný, upotřebitelný, vhodný;Přídavné jméno;;
+5;vereor, eri, veritus sum;bojím se, ostýchám se, vážím si;Sloveso;2;
+3;habeo, ere, ui, itum;mám, držím v majetku, pokládám za něco, ovládám, konám, pořádám;Sloveso;2;

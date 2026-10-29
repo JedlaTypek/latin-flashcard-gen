@@ -1,0 +1,14 @@
+# Virtuální prostředí a cache
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Konfigurace s tajnými klíči
+.env
+.env.local
+.streamlit/secrets.toml
+
+# Exporty Anki
+*.apkg
