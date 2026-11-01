@@ -11,6 +11,7 @@ services:
       - STREAMLIT_SERVER_HEADLESS=true
       - STREAMLIT_SERVER_ENABLE_CORS=false
       - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     volumes:
       # Použití pojmenovaného svazku namísto relativní cesty
       - latin_flashcards_data:/app/data
