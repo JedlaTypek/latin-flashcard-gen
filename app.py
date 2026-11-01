@@ -1496,22 +1496,26 @@ stranky = [
         stranka_generator,
         title="Generátor kartiček",
         icon=":material/style:",
+        url_path="generator",
         default=True,
     ),
     st.Page(
         stranka_knihovna,
         title="Knihovna kartiček",
         icon=":material/local_library:",
+        url_path="knihovna",
     ),
     st.Page(
         stranka_slovnik,
         title="Slovník",
         icon=":material/menu_book:",
+        url_path="slovnik",
     ),
     st.Page(
         stranka_prihlaseni,
         title="Odhlásit se" if st.session_state.admin_prihlasen else "Přihlásit se",
         icon=":material/verified_user:" if st.session_state.admin_prihlasen else ":material/login:",
+        url_path="prihlaseni",
     ),
 ]
 

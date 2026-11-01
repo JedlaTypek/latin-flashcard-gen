@@ -1,18 +1,21 @@
+version: "3.8"
+
 services:
-  slovnicek-parser:
+  latin-flashcard-gen:
     build: .
-    container_name: slovnicek-parser
+    container_name: latin-flashcard-gen
+    restart: unless-stopped
     ports:
       - "8501:8501"
-    restart: unless-stopped
-    env_file:
-      - path: .env
-        required: false
     environment:
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ENABLE_CORS=false
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
     volumes:
-      # Umožňuje aktualizovat slovíčka a zapisovat změny z administrace:
-      - ./data:/app/data
-      - ./app.py:/app/app.py
-      - ./druhy.py:/app/druhy.py
-      - ./.env:/app/.env:ro
+      # Použití pojmenovaného svazku namísto relativní cesty
+      - latin_flashcards_data:/app/data
+
+# Definice pojmenovaného svazku
+volumes:
+  latin_flashcards_data:
+    name: latin_flashcards_data
