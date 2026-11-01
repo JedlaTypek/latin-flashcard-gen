@@ -54,6 +54,29 @@ def klic_serazeni_lekci(hodnota: str):
 # --- NASTAVENÍ STRÁNKY A SESSION STATE ---
 st.set_page_config(page_title="Generátor karet do AnkiDroidu", page_icon="📚", layout="wide")
 
+# CSS úprava ikony bočního panelu:
+# - zavřený panel: hamburger ikona (Material Symbol 'menu' \e5d2)
+# - otevřený panel: zachována dvojitá šipka doleva (keyboard_double_arrow_left)
+st.html(
+    r"""
+    <style>
+    [data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"],
+    [data-testid="collapsedControl"] [data-testid="stIconMaterial"] {
+        font-size: 0 !important;
+        line-height: 0 !important;
+    }
+    [data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"]::before,
+    [data-testid="collapsedControl"] [data-testid="stIconMaterial"]::before {
+        content: "\e5d2" !important;
+        font-size: 1.5rem !important;
+        font-family: "Material Symbols Rounded" !important;
+        line-height: 1 !important;
+        display: inline-block !important;
+    }
+    </style>
+    """
+)
+
 if "nazev_balicku" not in st.session_state:
     st.session_state.nazev_balicku = "Latina - Můj výběr"
 
