@@ -10,7 +10,7 @@ from datetime import datetime
 import pandas as pd
 import genanki
 import streamlit as st
-from druhy import analyzuj_slovicko
+from druhy import analyzuj_slovicko, urci_deklinaci_adjektiva
 
 try:
     from dotenv import load_dotenv
@@ -96,6 +96,21 @@ else:
 def nacti_data() -> pd.DataFrame:
     df = pd.read_csv(CSV_SOUBOR, sep=";", dtype=str)
     df.fillna("", inplace=True)
+    if "Konjugace" not in df.columns:
+        df["Konjugace"] = ""
+    if "Deklinace" not in df.columns:
+        df["Deklinace"] = ""
+
+    # Doplnění deklinace pro přídavná jména, pokud v datech chybí
+    mask_adj_bez_dekl = (df["Slovní druh"] == "Přídavné jméno") & (df["Deklinace"].str.strip() == "")
+    if mask_adj_bez_dekl.any():
+        for idx in df[mask_adj_bez_dekl].index:
+            clean_parts = [p.strip().lower() for p in str(df.loc[idx, "Latina"]).split(",")]
+            df.loc[idx, "Deklinace"] = urci_deklinaci_adjektiva(clean_parts)
+
+    konj = df["Konjugace"].astype(str).str.strip()
+    dekl = df["Deklinace"].astype(str).str.strip()
+    df["konj./dekl."] = konj.where(konj != "", dekl)
     return df
 
 def uloz_data(novy_df: pd.DataFrame) -> bool:
@@ -104,7 +119,12 @@ def uloz_data(novy_df: pd.DataFrame) -> bool:
         adresar = os.path.dirname(CSV_SOUBOR)
         if adresar:
             os.makedirs(adresar, exist_ok=True)
-        novy_df.to_csv(CSV_SOUBOR, sep=";", index=False, encoding="utf-8")
+        sloupce = ["Lekce", "Latina", "Čeština", "Slovní druh", "Konjugace", "Deklinace"]
+        df_k_zapisu = novy_df.copy()
+        for col in sloupce:
+            if col not in df_k_zapisu.columns:
+                df_k_zapisu[col] = ""
+        df_k_zapisu[sloupce].to_csv(CSV_SOUBOR, sep=";", index=False, encoding="utf-8")
         st.cache_data.clear()
         return True
     except Exception as e:
@@ -245,7 +265,8 @@ def publikuj_balicek(nazev: str, popis: str, smer_lat_ces: bool, smer_ces_lat: b
             "Lekce": str(r.get("Lekce", "")),
             "Latina": str(r.get("Latina", "")),
             "Čeština": str(r.get("Čeština", "")),
-            "Slovní druh": str(r.get("Slovní druh", ""))
+            "Slovní druh": str(r.get("Slovní druh", "")),
+            "konj./dekl.": str(r.get("konj./dekl.", ""))
         })
         
     zaznam = {
@@ -307,12 +328,12 @@ def aplikuj_filtry(
                 podminky.append(mask_slovesa & (df_f['Konjugace'].isin(vybrane_konjugace) | (df_f['Konjugace'] == '')))
             else:
                 podminky.append(mask_slovesa & df_f['Konjugace'].isin(vybrane_konjugace))
-        elif druh == 'Podstatné jméno':
-            mask_subst = (df_f['Slovní druh'] == 'Podstatné jméno')
+        elif druh in ['Podstatné jméno', 'Přídavné jméno']:
+            mask_dekl = (df_f['Slovní druh'] == druh)
             if set(vybrane_deklinace) >= vsechny_dekl:
-                podminky.append(mask_subst & (df_f['Deklinace'].isin(vybrane_deklinace) | (df_f['Deklinace'] == '')))
+                podminky.append(mask_dekl & (df_f['Deklinace'].isin(vybrane_deklinace) | (df_f['Deklinace'] == '')))
             else:
-                podminky.append(mask_subst & df_f['Deklinace'].isin(vybrane_deklinace))
+                podminky.append(mask_dekl & df_f['Deklinace'].isin(vybrane_deklinace))
         else:
             podminky.append(df_f['Slovní druh'] == druh)
 
@@ -463,7 +484,8 @@ def parsuj_import_csv(file_bytes: bytes, vychozi_lekce: str = "1") -> pd.DataFra
             'Čeština': ces,
             'Slovní druh': druh,
             'Konjugace': konj,
-            'Deklinace': dekl
+            'Deklinace': dekl,
+            'konj./dekl.': konj if konj else dekl
         })
 
     return pd.DataFrame(vysledek)
@@ -482,7 +504,12 @@ def dopln_mluvnicke_kategorie_do_state(latina_key: str, druh_key: str, konj_key:
     if konj:
         detaily.append(f"{konj}. konjugace" if konj != "nepravidelná" else "nepravidelné sloveso")
     if dekl:
-        detaily.append(f"{dekl}. deklinace" if dekl != "nesklonná" else "nesklonné podst. jméno")
+        if dekl == "nesklonná":
+            detaily.append("nesklonné podst. jméno")
+        elif "., " in dekl or dekl.endswith("."):
+            detaily.append(f"{dekl} deklinace")
+        else:
+            detaily.append(f"{dekl}. deklinace")
     st.session_state[msg_key] = ("success", f"Mluvnické kategorie doplněny: {', '.join(detaily)}")
 
 def on_add_doplnit_kategorie():
@@ -566,7 +593,7 @@ def dialog_pridat_slovo(aktualni_df: pd.DataFrame):
 
     druhy_moznosti = ["Podstatné jméno", "Přídavné jméno", "Sloveso", "Zájmeno", "Ostatní"]
     konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
-    dekl_moznosti = ["", "1", "2", "3", "4", "5", "nesklonná"]
+    dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
 
     col_druh, col_gram1, col_gram2 = st.columns(3)
     with col_druh:
@@ -584,9 +611,9 @@ def dialog_pridat_slovo(aktualni_df: pd.DataFrame):
         )
     with col_gram2:
         nova_dekl = st.selectbox(
-            "Deklinace (pro podstatná jména):",
+            "Deklinace (podst. a příd. jména):",
             options=dekl_moznosti,
-            help="Vyplňte pouze u podstatných jmen",
+            help="Vyplňte pro podstatná nebo přídavná jména",
             key="dlg_add_dekl"
         )
 
@@ -629,7 +656,7 @@ def dialog_pridat_slovo(aktualni_df: pd.DataFrame):
                 "Čeština": cestina_clean,
                 "Slovní druh": novy_druh,
                 "Konjugace": nova_konj if novy_druh == "Sloveso" else "",
-                "Deklinace": nova_dekl if novy_druh == "Podstatné jméno" else ""
+                "Deklinace": nova_dekl if novy_druh in ["Podstatné jméno", "Přídavné jméno"] else ""
             }])
 
             df_nove = pd.concat([aktualni_df, novy_zaznam], ignore_index=True)
@@ -687,7 +714,12 @@ def dialog_import_csv(aktualni_df: pd.DataFrame):
 
             druhy_moznosti = ["Podstatné jméno", "Přídavné jméno", "Sloveso", "Zájmeno", "Ostatní"]
             konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
-            dekl_moznosti = ["", "1", "2", "3", "4", "5", "nesklonná"]
+            dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
+
+            if "konj./dekl." not in df_k_uprave.columns:
+                konj_s = df_k_uprave.get("Konjugace", pd.Series("", index=df_k_uprave.index)).astype(str).str.strip()
+                dekl_s = df_k_uprave.get("Deklinace", pd.Series("", index=df_k_uprave.index)).astype(str).str.strip()
+                df_k_uprave["konj./dekl."] = konj_s.where(konj_s != "", dekl_s)
 
             edited_df = st.data_editor(
                 df_k_uprave,
@@ -698,8 +730,9 @@ def dialog_import_csv(aktualni_df: pd.DataFrame):
                     "Latina": st.column_config.TextColumn("Latina", required=True, width="medium"),
                     "Čeština": st.column_config.TextColumn("Čeština", required=True, width="medium"),
                     "Slovní druh": st.column_config.SelectboxColumn("Slovní druh", options=druhy_moznosti, required=True, width="medium"),
+                    "konj./dekl.": st.column_config.TextColumn("konj./dekl.", width="small"),
                     "Konjugace": st.column_config.SelectboxColumn("Konjugace (slovesa)", options=konj_moznosti, width="small"),
-                    "Deklinace": st.column_config.SelectboxColumn("Deklinace (podst. jména)", options=dekl_moznosti, width="small"),
+                    "Deklinace": st.column_config.SelectboxColumn("Deklinace (podst. a příd. jména)", options=dekl_moznosti, width="small"),
                 },
                 key="csv_import_data_editor"
             )
@@ -785,7 +818,7 @@ def dialog_upravit_slovo(real_idx: int, aktualni_df: pd.DataFrame):
 
     druhy_moznosti = ["Podstatné jméno", "Přídavné jméno", "Sloveso", "Zájmeno", "Ostatní"]
     konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
-    dekl_moznosti = ["", "1", "2", "3", "4", "5", "nesklonná"]
+    dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
 
     # Inicializace hodnot při prvním otevření editace pro danou kartu
     if st.session_state.get("dlg_edit_initialized_idx") != real_idx:
@@ -802,7 +835,9 @@ def dialog_upravit_slovo(real_idx: int, aktualni_df: pd.DataFrame):
 
         dekl_val = str(karta['Deklinace']).strip()
         if dekl_val.endswith('.0'): dekl_val = dekl_val[:-2]
-        if dekl_val == 'nan' or dekl_val not in dekl_moznosti: dekl_val = ''
+        if dekl_val == 'nan': dekl_val = ''
+        if dekl_val and dekl_val not in dekl_moznosti:
+            dekl_moznosti.append(dekl_val)
 
         st.session_state.dlg_edit_initialized_idx = real_idx
         st.session_state.dlg_edit_vyber_lekce = lekce_val if lekce_val in existujici_lekce else existujici_lekce[0]
@@ -872,9 +907,9 @@ def dialog_upravit_slovo(real_idx: int, aktualni_df: pd.DataFrame):
         )
     with col_gram2:
         nova_dekl = st.selectbox(
-            "Deklinace (pro podstatná jména):",
+            "Deklinace (podst. a příd. jména):",
             options=dekl_moznosti,
-            help="Vyplňte pouze u podstatných jmen",
+            help="Vyplňte pro podstatná nebo přídavná jména",
             key="dlg_edit_dekl"
         )
 
@@ -917,7 +952,7 @@ def dialog_upravit_slovo(real_idx: int, aktualni_df: pd.DataFrame):
             aktualni_df.loc[real_idx, "Čeština"] = cestina_clean
             aktualni_df.loc[real_idx, "Slovní druh"] = novy_druh
             aktualni_df.loc[real_idx, "Konjugace"] = nova_konj if novy_druh == "Sloveso" else ""
-            aktualni_df.loc[real_idx, "Deklinace"] = nova_dekl if novy_druh == "Podstatné jméno" else ""
+            aktualni_df.loc[real_idx, "Deklinace"] = nova_dekl if novy_druh in ["Podstatné jméno", "Přídavné jméno"] else ""
 
             if uloz_data(aktualni_df):
                 st.session_state["admin_zprava"] = f"Kartička '{latina_clean}' byla úspěšně upravena."
@@ -957,7 +992,8 @@ def dialog_smazat_slovo(real_idx: int, aktualni_df: pd.DataFrame):
 def dialog_hromadne_smazani(selected_indices: list, aktualni_df: pd.DataFrame):
     st.warning(f"Opravdu chcete trvale smazat **{len(selected_indices)}** vybraných kartiček?", icon=":material/warning:")
     
-    ukazka = aktualni_df.loc[selected_indices, ['Lekce', 'Latina', 'Čeština', 'Slovní druh']].head(5)
+    sloupce_ukazky = [c for c in ['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'konj./dekl.'] if c in aktualni_df.columns]
+    ukazka = aktualni_df.loc[selected_indices, sloupce_ukazky].head(5)
     st.dataframe(ukazka, hide_index=True)
     if len(selected_indices) > 5:
         st.caption(f"... a dalších {len(selected_indices) - 5} kartiček.")
@@ -1095,6 +1131,7 @@ def stranka_generator():
 
     chci_slovesa = 'Sloveso' in vybrane_druhy
     chci_substantiva = 'Podstatné jméno' in vybrane_druhy
+    chci_adjektiva = 'Přídavné jméno' in vybrane_druhy
 
     # 3. Dodatečné filtry (Konjugace / Deklinace)
     vybrane_konjugace = []
@@ -1108,10 +1145,11 @@ def stranka_generator():
         )
 
     vybrane_deklinace = []
-    if chci_substantiva:
+    if chci_substantiva or chci_adjektiva:
         dostupne_dekl = sorted([d for d in df['Deklinace'].unique() if d])
+        label_dekl = "Vyber deklinace (podst. a příd. jména):" if (chci_substantiva and chci_adjektiva) else ("Vyber deklinace (jen pro podst. jména):" if chci_substantiva else "Vyber deklinace (jen pro příd. jména):")
         vybrane_deklinace = st.sidebar.multiselect(
-            "Vyber deklinace (jen pro podst. jména):", 
+            label_dekl, 
             options=dostupne_dekl, 
             default=dostupne_dekl,
             key="gen_dekl"
@@ -1124,7 +1162,7 @@ def stranka_generator():
     st.subheader(f"Nalezeno slovíček: {len(df_filtered)}")
 
     st.dataframe(
-        df_filtered[['Lekce', 'Latina', 'Čeština', 'Slovní druh']],
+        df_filtered[['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'konj./dekl.']],
         alt="Seznam filtrovaných latinských slovíček"
     )
 
@@ -1244,7 +1282,12 @@ def stranka_knihovna():
             if karticky:
                 with st.expander(f"🔍 Detail balíčku — seznam kartiček ({len(karticky)} slovíček)"):
                     df_kart = pd.DataFrame(karticky)
-                    st.dataframe(df_kart, hide_index=True, width="stretch")
+                    if "konj./dekl." not in df_kart.columns:
+                        konj_k = df_kart.get("Konjugace", pd.Series("", index=df_kart.index)).astype(str).str.strip()
+                        dekl_k = df_kart.get("Deklinace", pd.Series("", index=df_kart.index)).astype(str).str.strip()
+                        df_kart["konj./dekl."] = konj_k.where(konj_k != "", dekl_k)
+                    sloupce_kart = [c for c in ["Lekce", "Latina", "Čeština", "Slovní druh", "konj./dekl."] if c in df_kart.columns]
+                    st.dataframe(df_kart[sloupce_kart], hide_index=True, width="stretch")
 
 # ==============================================================================
 # STRÁNKA 3: SLOVNÍK (PŘEJMENOVANÁ ADMINISTRACE)
@@ -1296,6 +1339,7 @@ def stranka_slovnik():
 
     chci_slovesa = 'Sloveso' in vybrane_druhy
     chci_substantiva = 'Podstatné jméno' in vybrane_druhy
+    chci_adjektiva = 'Přídavné jméno' in vybrane_druhy
 
     vybrane_konjugace = []
     if chci_slovesa:
@@ -1308,10 +1352,11 @@ def stranka_slovnik():
         )
 
     vybrane_deklinace = []
-    if chci_substantiva:
+    if chci_substantiva or chci_adjektiva:
         dostupne_dekl = sorted([d for d in df['Deklinace'].unique() if d])
+        label_dekl = "Vyber deklinace (podst. a příd. jména):" if (chci_substantiva and chci_adjektiva) else ("Vyber deklinace (jen pro podst. jména):" if chci_substantiva else "Vyber deklinace (jen pro příd. jména):")
         vybrane_deklinace = st.sidebar.multiselect(
-            "Vyber deklinace (jen pro podst. jména):", 
+            label_dekl, 
             options=dostupne_dekl, 
             default=dostupne_dekl,
             key="admin_dekl"
@@ -1334,7 +1379,7 @@ def stranka_slovnik():
             st.info("Zadaným filtrům neodpovídá žádné slovíčko.")
         else:
             st.dataframe(
-                df_filtered[['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'Konjugace', 'Deklinace']],
+                df_filtered[['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'konj./dekl.']],
                 hide_index=True,
                 width="stretch",
                 alt="Slovník latinských slovíček"
@@ -1394,7 +1439,7 @@ def stranka_slovnik():
             df_zobrazit = df_filtered.copy()
             df_zobrazit["Upravit"] = ":material/edit:"
             df_zobrazit["Smazat"] = ":material/delete:"
-            sloupce = ["Upravit", "Smazat", "Lekce", "Latina", "Čeština", "Slovní druh", "Konjugace", "Deklinace"]
+            sloupce = ["Upravit", "Smazat", "Lekce", "Latina", "Čeština", "Slovní druh", "konj./dekl."]
             df_zobrazit = df_zobrazit[sloupce]
 
             st.dataframe(
@@ -1424,8 +1469,7 @@ def stranka_slovnik():
                     "Latina": st.column_config.TextColumn("Latina", width="medium"),
                     "Čeština": st.column_config.TextColumn("Čeština", width="medium"),
                     "Slovní druh": st.column_config.TextColumn("Slovní druh", width="medium"),
-                    "Konjugace": st.column_config.TextColumn("Konjugace", width="small"),
-                    "Deklinace": st.column_config.TextColumn("Deklinace", width="small"),
+                    "konj./dekl.": st.column_config.TextColumn("konj./dekl.", width="small"),
                 },
                 hide_index=True,
                 width="stretch",
@@ -1515,7 +1559,7 @@ def stranka_prihlaseni():
 # STRÁNKA 5: NÁVOD K IMPORTU DO ANKI
 # ==============================================================================
 def stranka_navod():
-    st.title("📖 Jak importovat kartičky do Anki")
+    st.title("📖 Jak používat kartičky v Anki aplikaci")
     st.caption("Podrobný průvodce stažením a importem vygenerovaných balíčků (.apkg) do telefonu, tabletu i počítače.")
 
     zobraz_sidebar_admin_status()
@@ -1736,7 +1780,7 @@ stranky = [
     ),
     st.Page(
         stranka_navod,
-        title="Návod k importu",
+        title="Jak používat kartičky",
         icon=":material/help:",
         url_path="navod",
     ),

@@ -25,6 +25,25 @@ def urci_deklinaci(parts):
     # Pokud se tvar vymyká, naprostá většina anomálií spadá do 3. deklinace (např. vis)
     return "3"
 
+def urci_deklinaci_adjektiva(parts, last_part=""):
+    if not last_part and parts:
+        last_part = parts[-1]
+    last = last_part.strip().lower()
+    
+    # 1. a 2. deklinace (-us, -a, -um / -er, -ra, -um apod.)
+    if "um" in last:
+        return "1., 2."
+        
+    # 3. deklinace (dvojvýchodná na -is, -e; trojvýchodná na -er, -(i)s, -e; celeber, celebris, celebre...)
+    if last == "e" or last.endswith(" e") or last.endswith("e"):
+        return "3"
+        
+    # Jednovýchodná 3. deklinace (vetus, eris / clemens, entis / mendax, acis / prudens, entis...)
+    if len(parts) >= 2 and any(last.endswith(suf) for suf in ["is", "ns", "x", "eris", "entis", "acis", "icis"]):
+        return "3"
+        
+    return "1., 2."
+
 def urci_konjugaci(parts):
     if len(parts) < 2:
         return ""
@@ -91,12 +110,16 @@ def analyzuj_slovicko(latina):
     # 4. Přídavná jména
     elif last_part == 'um' or last_part.endswith(' um') or last_part == 'e':
         druh = 'Přídavné jméno'
+        deklinace = urci_deklinaci_adjektiva(parts, last_part)
     elif comma_count == 2 and last_part.endswith('e'):
         druh = 'Přídavné jméno'
+        deklinace = urci_deklinaci_adjektiva(parts, last_part)
     elif comma_count == 1 and (first_part.endswith('ns') or first_part.endswith('ax') or first_part.endswith('er')):
         druh = 'Přídavné jméno'
+        deklinace = urci_deklinaci_adjektiva(parts, last_part)
     elif 'vetus' in first_part:
         druh = 'Přídavné jméno'
+        deklinace = '3'
         
     return druh, konjugace, deklinace
 
