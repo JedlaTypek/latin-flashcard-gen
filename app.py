@@ -6,6 +6,7 @@ import random
 import hmac
 import json
 import time
+import uuid
 from datetime import datetime
 import pandas as pd
 import genanki
@@ -238,6 +239,63 @@ def smaz_balicek_z_knihovny(balicek_id: str) -> bool:
             
     return uloz_knihovnu(novy_seznam)
 
+# ==============================================================================
+# SPRÁVA ŽÁDOSTÍ O PŘIDÁNÍ SLOVA
+# ==============================================================================
+ZADOSTI_JSON_PATH = os.path.join(DATA_DIR, "zadosti_o_slova.json")
+
+def nacti_zadosti() -> list:
+    """Načte seznam žádostí o přidání slov ze souboru JSON."""
+    if not os.path.exists(ZADOSTI_JSON_PATH):
+        return []
+    try:
+        with open(ZADOSTI_JSON_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+def uloz_zadosti(zadosti: list) -> bool:
+    """Uloží seznam žádostí do souboru JSON."""
+    try:
+        os.makedirs(os.path.dirname(ZADOSTI_JSON_PATH), exist_ok=True)
+        with open(ZADOSTI_JSON_PATH, "w", encoding="utf-8") as f:
+            json.dump(zadosti, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Chyba při ukládání žádostí: {e}")
+        return False
+
+def pridej_zadost(latina: str, cestina: str, lekce: str, poznamka: str) -> bool:
+    """Přidá novou žádost o slovo."""
+    zadosti = nacti_zadosti()
+    nova = {
+        "id": uuid.uuid4().hex[:8],
+        "latina": latina.strip(),
+        "cestina": cestina.strip(),
+        "lekce": lekce.strip(),
+        "poznamka": poznamka.strip(),
+        "stav": "cekajici",
+        "datum": datetime.now().strftime("%d. %m. %Y %H:%M"),
+    }
+    zadosti.insert(0, nova)
+    return uloz_zadosti(zadosti)
+
+def zmen_stav_zadosti(zadost_id: str, novy_stav: str) -> bool:
+    """Změní stav žádosti (cekajici / vyrizeno / zamitnuto)."""
+    zadosti = nacti_zadosti()
+    for z in zadosti:
+        if z.get("id") == zadost_id:
+            z["stav"] = novy_stav
+            break
+    return uloz_zadosti(zadosti)
+
+def smaz_zadost(zadost_id: str) -> bool:
+    """Smaže žádost ze seznamu."""
+    zadosti = nacti_zadosti()
+    novy = [z for z in zadosti if z.get("id") != zadost_id]
+    return uloz_zadosti(novy)
+
 def publikuj_balicek(nazev: str, popis: str, smer_lat_ces: bool, smer_ces_lat: bool, df_data: pd.DataFrame) -> tuple[bool, str, str]:
     """Vygeneruje .apkg, uloží jej do data/balicky a zapíše metadata do knihovny."""
     os.makedirs(BALICKY_DIR, exist_ok=True)
@@ -359,6 +417,7 @@ def aplikuj_filtry(
 # ==============================================================================
 def reset_pridat_state():
     st.session_state.pridat_slovo_aktivni = False
+    st.session_state.pop("schvalovana_zadost_id", None)
     for k in ["dlg_add_latina", "dlg_add_cestina", "dlg_add_nova_lekce", "dlg_add_vyber_lekce", "dlg_add_druh", "dlg_add_konj", "dlg_add_dekl", "dlg_add_msg"]:
         st.session_state.pop(k, None)
 
@@ -387,6 +446,65 @@ def reset_import_csv_state():
         "csv_import_data_editor"
     ]:
         st.session_state.pop(k, None)
+
+def reset_zadost_state():
+    st.session_state.pop("zadost_dialog_aktivni", None)
+    for k in ["dlg_zadost_latina", "dlg_zadost_cestina", "dlg_zadost_lekce", "dlg_zadost_poznamka"]:
+        st.session_state.pop(k, None)
+
+@st.dialog("Požádat o přidání chybějícího slova", on_dismiss=reset_zadost_state)
+def dialog_zadost_o_slovo(aktualni_df: pd.DataFrame):
+    st.markdown(
+        "Pokud v databázi chybí slovíčko, které potřebujete, "
+        "vyplňte formulář níže a správce jej posoudí."
+    )
+
+    existujici_lekce = sorted(list(set(aktualni_df['Lekce'].unique()) - {''}), key=klic_serazeni_lekci)
+    lekce_options = ["(neurčeno)"] + existujici_lekce
+
+    nova_latina = st.text_input(
+        "Latina *",
+        placeholder="např. victoria, ae, f",
+        help="Latinské slovo ve slovníkovém tvaru",
+        key="dlg_zadost_latina"
+    )
+    nova_cestina = st.text_input(
+        "Čeština (volitelné)",
+        placeholder="např. vítězství",
+        help="Český překlad, pokud ho znáte",
+        key="dlg_zadost_cestina"
+    )
+    vyber_lekce = st.selectbox(
+        "Lekce (volitelné):",
+        options=lekce_options,
+        key="dlg_zadost_lekce",
+        help="Vyberte lekci, do které by slovo mělo patřit"
+    )
+    poznamka = st.text_area(
+        "Poznámka (volitelné)",
+        placeholder="Další kontext, kde jste na slovo narazili...",
+        key="dlg_zadost_poznamka",
+        max_chars=300
+    )
+
+    with st.container(horizontal=True):
+        tlacitko_odeslat = st.button("Odeslat žádost", type="primary", icon=":material/send:", key="btn_zadost_odeslat")
+        tlacitko_zrusit = st.button("Zrušit", key="btn_zadost_zrusit")
+
+    if tlacitko_zrusit:
+        reset_zadost_state()
+        st.rerun()
+
+    if tlacitko_odeslat:
+        latina_clean = nova_latina.strip()
+        if not latina_clean:
+            st.error("Pole 'Latina' je povinné.")
+        else:
+            lekce_val = "" if vyber_lekce == "(neurčeno)" else vyber_lekce
+            if pridej_zadost(latina_clean, nova_cestina.strip(), lekce_val, poznamka.strip()):
+                st.session_state["uzivatel_zprava"] = f"Žádost o slovo \u201e{latina_clean}\u201c byla úspěšně odeslána. Děkujeme!"
+                reset_zadost_state()
+                st.rerun()
 
 def parsuj_import_csv(file_bytes: bytes, vychozi_lekce: str = "1") -> pd.DataFrame:
     """
@@ -661,6 +779,10 @@ def dialog_pridat_slovo(aktualni_df: pd.DataFrame):
 
             df_nove = pd.concat([aktualni_df, novy_zaznam], ignore_index=True)
             if uloz_data(df_nove):
+                # Pokud se schvaluje žádost, označit ji jako vyřízenou
+                schvalovana_id = st.session_state.pop("schvalovana_zadost_id", None)
+                if schvalovana_id:
+                    zmen_stav_zadosti(schvalovana_id, "vyrizeno")
                 st.session_state["admin_zprava"] = f"Kartička '{latina_clean}' byla úspěšně přidána do lekce {finalni_lekce}."
                 reset_pridat_state()
                 st.rerun()
@@ -1108,6 +1230,12 @@ def stranka_generator():
 
     zobraz_sidebar_admin_status()
 
+    st.info(
+        "💡 **Chybí vám nějaké slovo?**\n\n"
+        "Pokud v databázi postrádáte některé slovíčko, můžete požádat o jeho přidání v záložce [Slovník](slovnik).",
+        icon=":material/info:",
+    )
+
     # Boční panel pro filtry generátoru
     st.sidebar.header("Nastavení filtru")
 
@@ -1374,9 +1502,23 @@ def stranka_slovnik():
 
     if not st.session_state.admin_prihlasen:
         st.info("💡 Pro přidávání slovíček, import z CSV a úpravu či mazání kartiček se přihlaste v záložce **Přihlásit se**.", icon=":material/lock:")
+
+        # Zobrazení zprávy po odeslání žádosti
+        if "uzivatel_zprava" in st.session_state:
+            st.success(st.session_state.pop("uzivatel_zprava"), icon=":material/check_circle:")
+
+        if st.button("Požádat o chybějící slovo", icon=":material/record_voice_over:"):
+            st.session_state.zadost_dialog_aktivni = True
+            st.rerun()
+
         st.caption(f"Zobrazeno **{len(df_filtered)}** z celkem {len(df)} kartiček")
         if len(df_filtered) == 0:
             st.info("Zadaným filtrům neodpovídá žádné slovíčko.")
+            if hledany_text and hledany_text.strip():
+                st.markdown(
+                    f"Nenašli jste slovo **{hledany_text.strip()}**? "
+                    "Klikněte na tlačítko výše a požádejte o jeho přidání."
+                )
         else:
             st.dataframe(
                 df_filtered[['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'konj./dekl.']],
@@ -1384,97 +1526,196 @@ def stranka_slovnik():
                 width="stretch",
                 alt="Slovník latinských slovíček"
             )
+
+        # Otevření dialogu pro žádost
+        if st.session_state.get("zadost_dialog_aktivni"):
+            dialog_zadost_o_slovo(df)
     else:
-        # Reset označených řádků při změně filtrů
-        filtr_sig = (tuple(vybrane_lekce), tuple(vybrane_druhy), tuple(vybrane_konjugace), tuple(vybrane_deklinace), hledany_text)
-        if st.session_state.get("admin_last_filtr") != filtr_sig:
-            st.session_state.admin_last_filtr = filtr_sig
-            st.session_state.admin_selected_rows = []
-            st.session_state.admin_table_ver += 1
+        # Zobrazení zprávy po akci se žádostí
+        if "admin_zprava_zadost" in st.session_state:
+            st.success(st.session_state.pop("admin_zprava_zadost"), icon=":material/check_circle:")
 
-        # Zjištění aktuálně označených řádků
-        table_key = f"admin_table_{st.session_state.admin_table_ver}"
-        table_state = st.session_state.get(table_key)
-        if table_state is not None and hasattr(table_state, "selection"):
-            selected_rows = [r for r in table_state.selection.rows if r < len(df_filtered)]
-        else:
-            selected_rows = [r for r in st.session_state.admin_selected_rows if r < len(df_filtered)]
-        pocet_oznacenych = len(selected_rows)
+        # Záložky: Přehled slovíček + Žádosti o přidání
+        zadosti = nacti_zadosti()
+        pocet_nevyrizenych = sum(1 for z in zadosti if z.get("stav") == "cekajici")
+        tab_label_slova = "📚 Přehled a správa slovíček"
+        tab_label_zadosti = f"📬 Žádosti o přidání slova ({pocet_nevyrizenych})" if pocet_nevyrizenych > 0 else "📬 Žádosti o přidání slova"
+        tab_slovnik, tab_zadosti = st.tabs([tab_label_slova, tab_label_zadosti])
 
-        # Horní panel nástrojů (Toolbar)
-        with st.container(horizontal=True):
-            if st.button("Přidat slovo", icon=":material/add:", type="primary"):
-                st.session_state.pridat_slovo_aktivni = True
-                st.rerun()
-
-            if st.button("Importovat z CSV", icon=":material/upload_file:"):
-                st.session_state.import_csv_aktivni = True
-                st.rerun()
-
-            if st.button("Označit všechny vyfiltrované", icon=":material/select_all:", disabled=(len(df_filtered) == 0)):
-                st.session_state.admin_selected_rows = list(range(len(df_filtered)))
-                st.session_state.admin_table_ver += 1
-                st.rerun()
-
-            if st.button("Zrušit označení", icon=":material/deselect:", disabled=(pocet_oznacenych == 0)):
+        with tab_slovnik:
+            # Reset označených řádků při změně filtrů
+            filtr_sig = (tuple(vybrane_lekce), tuple(vybrane_druhy), tuple(vybrane_konjugace), tuple(vybrane_deklinace), hledany_text)
+            if st.session_state.get("admin_last_filtr") != filtr_sig:
+                st.session_state.admin_last_filtr = filtr_sig
                 st.session_state.admin_selected_rows = []
                 st.session_state.admin_table_ver += 1
-                st.rerun()
 
-            if st.button(
-                f"Smazat označené ({pocet_oznacenych})" if pocet_oznacenych > 0 else "Smazat označené",
-                type="secondary",
-                icon=":material/delete_sweep:",
-                disabled=(pocet_oznacenych == 0)
-            ):
-                st.session_state.bulk_delete_active = True
-                st.rerun()
+            # Zjištění aktuálně označených řádků
+            table_key = f"admin_table_{st.session_state.admin_table_ver}"
+            table_state = st.session_state.get(table_key)
+            if table_state is not None and hasattr(table_state, "selection"):
+                selected_rows = [r for r in table_state.selection.rows if r < len(df_filtered)]
+            else:
+                selected_rows = [r for r in st.session_state.admin_selected_rows if r < len(df_filtered)]
+            pocet_oznacenych = len(selected_rows)
 
-        st.caption(f"Zobrazeno **{len(df_filtered)}** z celkem {len(df)} kartiček | Označeno pro smazání: **{pocet_oznacenych}**")
+            # Horní panel nástrojů (Toolbar)
+            with st.container(horizontal=True):
+                if st.button("Přidat slovo", icon=":material/add:", type="primary"):
+                    st.session_state.pridat_slovo_aktivni = True
+                    st.rerun()
 
-        # Tabulka s přehledem kartiček
-        if len(df_filtered) == 0:
-            st.info("Zadaným filtrům neodpovídá žádná kartička.")
-        else:
-            df_zobrazit = df_filtered.copy()
-            df_zobrazit["Upravit"] = ":material/edit:"
-            df_zobrazit["Smazat"] = ":material/delete:"
-            sloupce = ["Upravit", "Smazat", "Lekce", "Latina", "Čeština", "Slovní druh", "konj./dekl."]
-            df_zobrazit = df_zobrazit[sloupce]
+                if st.button("Importovat z CSV", icon=":material/upload_file:"):
+                    st.session_state.import_csv_aktivni = True
+                    st.rerun()
 
-            st.dataframe(
-                df_zobrazit,
-                key=table_key,
-                selection_default={"selection": {"rows": st.session_state.admin_selected_rows}},
-                on_select="rerun",
-                selection_mode="multi-row",
-                column_config={
-                    "Upravit": st.column_config.ButtonColumn(
-                        "Upravit",
-                        help="Upravit kartičku",
-                        width="small",
-                        pinned=True,
-                        on_click=on_admin_edit_click,
-                        key="btn_admin_edit"
-                    ),
-                    "Smazat": st.column_config.ButtonColumn(
-                        "Smazat",
-                        help="Smazat kartičku",
-                        width="small",
-                        pinned=True,
-                        on_click=on_admin_delete_click,
-                        key="btn_admin_delete"
-                    ),
-                    "Lekce": st.column_config.TextColumn("Lekce", width="small"),
-                    "Latina": st.column_config.TextColumn("Latina", width="medium"),
-                    "Čeština": st.column_config.TextColumn("Čeština", width="medium"),
-                    "Slovní druh": st.column_config.TextColumn("Slovní druh", width="medium"),
-                    "konj./dekl.": st.column_config.TextColumn("konj./dekl.", width="small"),
-                },
-                hide_index=True,
-                width="stretch",
-                alt="Přehled a správa latinských kartiček"
+                if st.button("Označit všechny vyfiltrované", icon=":material/select_all:", disabled=(len(df_filtered) == 0)):
+                    st.session_state.admin_selected_rows = list(range(len(df_filtered)))
+                    st.session_state.admin_table_ver += 1
+                    st.rerun()
+
+                if st.button("Zrušit označení", icon=":material/deselect:", disabled=(pocet_oznacenych == 0)):
+                    st.session_state.admin_selected_rows = []
+                    st.session_state.admin_table_ver += 1
+                    st.rerun()
+
+                if st.button(
+                    f"Smazat označené ({pocet_oznacenych})" if pocet_oznacenych > 0 else "Smazat označené",
+                    type="secondary",
+                    icon=":material/delete_sweep:",
+                    disabled=(pocet_oznacenych == 0)
+                ):
+                    st.session_state.bulk_delete_active = True
+                    st.rerun()
+
+            st.caption(f"Zobrazeno **{len(df_filtered)}** z celkem {len(df)} kartiček | Označeno pro smazání: **{pocet_oznacenych}**")
+
+            # Tabulka s přehledem kartiček
+            if len(df_filtered) == 0:
+                st.info("Zadaným filtrům neodpovídá žádná kartička.")
+            else:
+                df_zobrazit = df_filtered.copy()
+                df_zobrazit["Upravit"] = ":material/edit:"
+                df_zobrazit["Smazat"] = ":material/delete:"
+                sloupce = ["Upravit", "Smazat", "Lekce", "Latina", "Čeština", "Slovní druh", "konj./dekl."]
+                df_zobrazit = df_zobrazit[sloupce]
+
+                st.dataframe(
+                    df_zobrazit,
+                    key=table_key,
+                    selection_default={"selection": {"rows": st.session_state.admin_selected_rows}},
+                    on_select="rerun",
+                    selection_mode="multi-row",
+                    column_config={
+                        "Upravit": st.column_config.ButtonColumn(
+                            "Upravit",
+                            help="Upravit kartičku",
+                            width="small",
+                            pinned=True,
+                            on_click=on_admin_edit_click,
+                            key="btn_admin_edit"
+                        ),
+                        "Smazat": st.column_config.ButtonColumn(
+                            "Smazat",
+                            help="Smazat kartičku",
+                            width="small",
+                            pinned=True,
+                            on_click=on_admin_delete_click,
+                            key="btn_admin_delete"
+                        ),
+                        "Lekce": st.column_config.TextColumn("Lekce", width="small"),
+                        "Latina": st.column_config.TextColumn("Latina", width="medium"),
+                        "Čeština": st.column_config.TextColumn("Čeština", width="medium"),
+                        "Slovní druh": st.column_config.TextColumn("Slovní druh", width="medium"),
+                        "konj./dekl.": st.column_config.TextColumn("konj./dekl.", width="small"),
+                    },
+                    hide_index=True,
+                    width="stretch",
+                    alt="Přehled a správa latinských kartiček"
+                )
+
+        with tab_zadosti:
+            # Filtr stavu žádostí
+            filtr_stav = st.segmented_control(
+                "Filtr stavu:",
+                options=["Všechny", "Čekající", "Vyřízené", "Zamítnuté"],
+                default="Všechny",
+                key="filtr_stav_zadosti",
             )
+
+            # Filtrace žádostí podle stavu
+            stav_map = {"Čekající": "cekajici", "Vyřízené": "vyrizeno", "Zamítnuté": "zamitnuto"}
+            if filtr_stav and filtr_stav != "Všechny":
+                zobrazene_zadosti = [z for z in zadosti if z.get("stav") == stav_map.get(filtr_stav)]
+            else:
+                zobrazene_zadosti = zadosti
+
+            if not zobrazene_zadosti:
+                if not zadosti:
+                    st.info("Zatím nebyly podány žádné žádosti o přidání slova.", icon=":material/inbox:")
+                else:
+                    st.info("Žádné žádosti neodpovídají vybranému filtru.", icon=":material/filter_list:")
+            else:
+                st.caption(f"Zobrazeno **{len(zobrazene_zadosti)}** žádostí")
+                for z in zobrazene_zadosti:
+                    stav = z.get("stav", "cekajici")
+                    stav_ikona = {"cekajici": "⏳", "vyrizeno": "✅", "zamitnuto": "❌"}.get(stav, "❓")
+                    stav_text = {"cekajici": "Čekající", "vyrizeno": "Vyřízeno", "zamitnuto": "Zamítnuto"}.get(stav, stav)
+
+                    with st.container(border=True):
+                        col_info, col_akce = st.columns([3, 1])
+                        with col_info:
+                            st.markdown(f"**{z.get('latina', '?')}**" + (f" — {z['cestina']}" if z.get("cestina") else ""))
+                            detaily = []
+                            if z.get("lekce"):
+                                detaily.append(f"Lekce: {z['lekce']}")
+                            detaily.append(f"Odesláno: {z.get('datum', '?')}")
+                            detaily.append(f"Stav: {stav_ikona} {stav_text}")
+                            st.caption(" · ".join(detaily))
+                            if z.get("poznamka"):
+                                st.caption(f"💬 {z['poznamka']}")
+                        with col_akce:
+                            zadost_id = z.get("id", "")
+                            if stav == "cekajici":
+                                if st.button("Rychle přidat", icon=":material/rocket_launch:", key=f"btn_rychle_{zadost_id}", width="stretch"):
+                                    # Automatická analýza a přidání
+                                    lat = z.get("latina", "").strip()
+                                    ces = z.get("cestina", "").strip()
+                                    lek = z.get("lekce", "").strip() or "1"
+                                    druh, konj, dekl = analyzuj_slovicko(lat)
+                                    novy_zaznam = pd.DataFrame([{
+                                        "Lekce": lek,
+                                        "Latina": lat,
+                                        "Čeština": ces if ces else lat,
+                                        "Slovní druh": druh,
+                                        "Konjugace": konj if druh == "Sloveso" else "",
+                                        "Deklinace": dekl if druh in ["Podstatné jméno", "Přídavné jméno"] else ""
+                                    }])
+                                    df_nove = pd.concat([df, novy_zaznam], ignore_index=True)
+                                    if uloz_data(df_nove):
+                                        zmen_stav_zadosti(zadost_id, "vyrizeno")
+                                        st.session_state["admin_zprava"] = f"Slovíčko \u201e{lat}\u201c bylo přidáno do lekce {lek} a žádost označena jako vyřízená."
+                                        st.rerun()
+
+                                if st.button("Upravit a přidat", icon=":material/edit:", key=f"btn_upravit_{zadost_id}", width="stretch"):
+                                    # Předvyplnit dialog pro přidání slova
+                                    st.session_state.pridat_slovo_aktivni = True
+                                    st.session_state["dlg_add_latina"] = z.get("latina", "")
+                                    st.session_state["dlg_add_cestina"] = z.get("cestina", "")
+                                    if z.get("lekce"):
+                                        st.session_state["dlg_add_nova_lekce"] = z.get("lekce", "")
+                                    st.session_state["schvalovana_zadost_id"] = zadost_id
+                                    st.rerun()
+
+                                if st.button("Zamítnout", icon=":material/close:", key=f"btn_zamitnout_{zadost_id}", width="stretch"):
+                                    zmen_stav_zadosti(zadost_id, "zamitnuto")
+                                    st.session_state["admin_zprava_zadost"] = f"Žádost o \u201e{z.get('latina', '?')}\u201c byla zamítnuta."
+                                    st.rerun()
+
+                            if st.button("Smazat", icon=":material/delete:", key=f"btn_smaz_zadost_{zadost_id}", width="stretch"):
+                                smaz_zadost(zadost_id)
+                                st.session_state["admin_zprava_zadost"] = f"Žádost o \u201e{z.get('latina', '?')}\u201c byla smazána."
+                                st.rerun()
 
         # Otevření příslušného modálního dialogu
         if st.session_state.get("pridat_slovo_aktivni"):
