@@ -1512,6 +1512,206 @@ def stranka_prihlaseni():
             st.rerun()
 
 # ==============================================================================
+# STRÁNKA 5: NÁVOD K IMPORTU DO ANKI
+# ==============================================================================
+def stranka_navod():
+    st.title("📖 Jak importovat kartičky do Anki")
+    st.caption("Podrobný průvodce stažením a importem vygenerovaných balíčků (.apkg) do telefonu, tabletu i počítače.")
+
+    zobraz_sidebar_admin_status()
+
+    st.sidebar.header("Rychlé odkazy ke stažení")
+    st.sidebar.link_button(
+        "AnkiDroid (Android)",
+        "https://play.google.com/store/apps/details?id=com.ichi2.anki",
+        icon=":material/android:",
+        width="stretch",
+    )
+    st.sidebar.link_button(
+        "AnkiMobile (iOS)",
+        "https://apps.apple.com/app/ankimobile-flashcards/id373493387",
+        icon=":material/phone_iphone:",
+        width="stretch",
+    )
+    st.sidebar.link_button(
+        "Anki pro PC / Mac",
+        "https://apps.ankiweb.net/",
+        icon=":material/desktop_windows:",
+        width="stretch",
+    )
+    st.sidebar.link_button(
+        "AnkiWeb (online)",
+        "https://ankiweb.net/",
+        icon=":material/cloud:",
+        width="stretch",
+    )
+
+    st.info(
+        "💡 **Co je soubor `.apkg`?**\n\n"
+        "Jde o standardní balíček kartiček Anki. Po vygenerování v [Generátoru kartiček](generator) "
+        "nebo stažení z [Knihovny kartiček](knihovna) získáte soubor s příponou `.apkg`, "
+        "který jednoduše otevřete ve své aplikaci Anki.",
+        icon=":material/info:",
+    )
+
+    # Rychlý rozcestník ke stažení
+    st.subheader("1. Kde získat aplikaci Anki?")
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1:
+        with st.container(border=True):
+            st.markdown("#### 📱 Android")
+            st.markdown("**Aplikace:** AnkiDroid")
+            st.caption("Zcela zdarma, open-source.")
+            st.link_button(
+                "Google Play",
+                "https://play.google.com/store/apps/details?id=com.ichi2.anki",
+                icon=":material/android:",
+                type="primary",
+                width="stretch",
+            )
+    with col_d2:
+        with st.container(border=True):
+            st.markdown("#### 🍏 iOS (iPhone / iPad)")
+            st.markdown("**Aplikace:** AnkiMobile / AnkiWeb")
+            st.caption("Oficiální iOS app (placená) nebo zdarma přes web.")
+            st.link_button(
+                "App Store",
+                "https://apps.apple.com/app/ankimobile-flashcards/id373493387",
+                icon=":material/phone_iphone:",
+                type="primary",
+                width="stretch",
+            )
+    with col_d3:
+        with st.container(border=True):
+            st.markdown("#### 💻 Počítač (PC / Mac)")
+            st.markdown("**Aplikace:** Anki Desktop")
+            st.caption("Windows, macOS i Linux. Zcela zdarma.")
+            st.link_button(
+                "Stáhnout pro PC",
+                "https://apps.ankiweb.net/",
+                icon=":material/desktop_windows:",
+                type="primary",
+                width="stretch",
+            )
+
+    st.markdown("---")
+    st.subheader("2. Návod k importu krok za krokem")
+
+    tab_android, tab_ios, tab_pc, tab_sync = st.tabs([
+        "📱 Android (AnkiDroid)",
+        "🍏 iPhone / iPad (AnkiMobile)",
+        "💻 Počítač (Windows, Mac, Linux)",
+        "☁️ Synchronizace (AnkiWeb)",
+    ])
+
+    with tab_android:
+        st.markdown("### Postup pro zařízení s Androidem (AnkiDroid)")
+        st.markdown(
+            """
+            1. **Nainstalujte si AnkiDroid** z [Obchodu Google Play](https://play.google.com/store/apps/details?id=com.ichi2.anki) a aplikaci alespoň jednou spusťte.
+            2. **Stáhněte si balíček:**
+               - V této aplikaci přejděte na [Generátor kartiček](generator) nebo do [Knihovny kartiček](knihovna).
+               - Vyberte si lekce nebo existující balíček a klepněte na tlačítko pro stažení balíčku (`.apkg`).
+            3. **Otevřete a naimportujte soubor:**
+               - **Způsob A (nejrychlejší):** Stáhněte lištu oznámení v telefonu a klepněte na oznámení o dokončeném stažení souboru. Telefon vám nabídne aplikaci pro otevření – vyberte **AnkiDroid**. Import proběhne okamžitě.
+               - **Způsob B (přes správce souborů):** Otevřete aplikaci *Správce souborů* (nebo *Stažené soubory / Downloads*), najděte soubor s příponou `.apkg` a klepněte na něj.
+               - **Způsob C (přímo v AnkiDroidu):** Spusťte AnkiDroid, klepněte na tři tečky v pravém horním rohu (nebo na modré tlačítko `+` vpravo dole) -> zvolte **Importovat** -> vyhledejte stažený soubor ve složce *Download*.
+            4. **Hotovo!** Na hlavní obrazovce AnkiDroidu uvidíte nový balíček latinských kartiček připravený k procvičování.
+            """
+        )
+        st.link_button(
+            "Otevřít AnkiDroid v Google Play",
+            "https://play.google.com/store/apps/details?id=com.ichi2.anki",
+            icon=":material/android:",
+            type="secondary",
+        )
+
+    with tab_ios:
+        st.markdown("### Postup pro iPhone a iPad (iOS)")
+        st.markdown(
+            """
+            Na zařízeních Apple máte dvě skvělé možnosti:
+
+            #### Možnost 1: Oficiální aplikace AnkiMobile (App Store)
+            1. Nainstalujte si aplikaci **AnkiMobile Flashcards** z [App Store](https://apps.apple.com/app/ankimobile-flashcards/id373493387).
+            2. V prohlížeči Safari na iPhonu si stáhněte balíček `.apkg` z [Generátoru](generator) nebo [Knihovny](knihovna).
+            3. V Safari klepněte v adresním řádku na ikonu stahování (modrý kroužek se šipkou dolů) a klepněte na stažený soubor `.apkg`.
+            4. Klepněte na ikonu **Sdílení** (čtvereček se šipkou nahoru) a v řádku aplikací zvolte **Anki** (případně *Otevřít v aplikaci AnkiMobile*).
+            5. Balíček se automaticky přidá do vaší sbírky.
+
+            #### Možnost 2: Bezplatné využití přes AnkiWeb (prohlížeč)
+            Pokud nechcete kupovat placenou aplikaci pro iOS:
+            1. Vytvořte si bezplatný účet na [AnkiWeb.net](https://ankiweb.net/).
+            2. Na svém počítači (kde je Anki zdarma) importujte stažený `.apkg` balíček a stiskněte tlačítko **Synchronizovat**.
+            3. Na iPhonu otevřete Safari, přihlaste se na [AnkiWeb.net](https://ankiweb.net/) a můžete se kartičky pohodlně učit přímo v prohlížeči s plnou synchronizací postupu.
+            """
+        )
+        col_ios1, col_ios2 = st.columns(2)
+        with col_ios1:
+            st.link_button(
+                "AnkiMobile v App Store",
+                "https://apps.apple.com/app/ankimobile-flashcards/id373493387",
+                icon=":material/phone_iphone:",
+                type="secondary",
+                width="stretch",
+            )
+        with col_ios2:
+            st.link_button(
+                "Přejít na AnkiWeb",
+                "https://ankiweb.net/",
+                icon=":material/cloud:",
+                type="secondary",
+                width="stretch",
+            )
+
+    with tab_pc:
+        st.markdown("### Postup pro počítač (Windows, Mac, Linux)")
+        st.markdown(
+            """
+            Počítačová verze Anki je nejvýkonnější a nabízí nejpohodlnější správu kartiček.
+
+            1. **Stáhněte a nainstalujte Anki:**
+               - Přejděte na oficiální web [apps.ankiweb.net](https://apps.ankiweb.net/) a stáhněte si verzi pro svůj systém (Windows, macOS nebo Linux).
+               - Dokončete standardní instalaci.
+            2. **Stáhněte balíček:**
+               - Zde v [Generátoru kartiček](generator) nebo [Knihovně kartiček](knihovna) klikněte na stažení vybraného balíčku.
+            3. **Importujte do Anki:**
+               - **Způsob A (nejjednodušší):** Dvakrát klikněte na stažený soubor `.apkg` ve složce *Stažené soubory*. Program Anki se sám otevře a zobrazí zprávu: *Import dokončen*.
+               - **Způsob B (z menu programu):** Spusťte Anki -> v horní liště zvolte **Soubor (File)** -> **Importovat... (Import...)** (nebo klávesová zkratka `Ctrl + I` na Windows či `Cmd + I` na Macu) -> vyberte soubor `.apkg`.
+            4. **Hotovo!** Balíček se zařadí mezi vaše balíčky a můžete ihned kliknout na *Studovat*.
+            """
+        )
+        st.link_button(
+            "Přejít na oficiální web ke stažení Anki pro PC",
+            "https://apps.ankiweb.net/",
+            icon=":material/desktop_windows:",
+            type="secondary",
+        )
+
+    with tab_sync:
+        st.markdown("### Jak synchronizovat kartičky mezi telefonem a počítačem?")
+        st.markdown(
+            """
+            Díky bezplatné službě **AnkiWeb** se nemusíte starat o přenášení souborů – jednou naimportujete balíček na počítači a automaticky ho máte i v mobilu.
+
+            1. **Registrace:** Založte si bezplatný účet na [ankiweb.net/account/register](https://ankiweb.net/account/register).
+            2. **Přihlášení v Anki na počítači:**
+               - Klikněte na tlačítko **Synchronizovat** (ikona dvou šipek v kruhu v horní liště).
+               - Zadejte svůj e-mail a heslo z AnkiWebu.
+            3. **Přihlášení v telefonu (AnkiDroid / AnkiMobile):**
+               - V nastavení aplikace otevřete sekci *AnkiWeb účet* a zadejte stejné přihlašovací údaje.
+               - Klepněte na ikonu synchronizace.
+            4. **Výsledek:** Všechny kartičky, vaše naplánovaná opakování i statistiky se odteď automaticky synchronizují na všech vašich zařízeních.
+            """
+        )
+        st.link_button(
+            "Registrovat bezplatný účet na AnkiWeb",
+            "https://ankiweb.net/account/register",
+            icon=":material/sync:",
+            type="secondary",
+        )
+
+# ==============================================================================
 # HORNÍ MENU BAR (NAVIGACE)
 # ==============================================================================
 stranky = [
@@ -1533,6 +1733,12 @@ stranky = [
         title="Slovník",
         icon=":material/menu_book:",
         url_path="slovnik",
+    ),
+    st.Page(
+        stranka_navod,
+        title="Návod k importu",
+        icon=":material/help:",
+        url_path="navod",
     ),
     st.Page(
         stranka_prihlaseni,
