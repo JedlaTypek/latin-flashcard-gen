@@ -12,6 +12,9 @@ import pandas as pd
 import genanki
 import streamlit as st
 from druhy import analyzuj_slovicko, urci_deklinaci_adjektiva
+from pathlib import Path
+
+qr_path = Path(__file__).resolve().parent / "data" / "qr-platba.png"
 
 try:
     from dotenv import load_dotenv
@@ -1800,7 +1803,7 @@ def stranka_prihlaseni():
 # STRÁNKA 5: NÁVOD K IMPORTU DO ANKI
 # ==============================================================================
 def stranka_navod():
-    st.title("📖 Jak používat kartičky v Anki aplikaci")
+    st.title("❓ Jak používat kartičky v Anki aplikaci")
     st.caption("Podrobný průvodce stažením a importem vygenerovaných balíčků (.apkg) do telefonu, tabletu i počítače.")
 
     zobraz_sidebar_admin_status()
@@ -1997,6 +2000,70 @@ def stranka_navod():
         )
 
 # ==============================================================================
+# Stránka o projektu
+# ==============================================================================
+def stranka_o_projektu():
+    st.title("ℹ️ O projektu")
+
+    zobraz_sidebar_admin_status()
+
+    st.sidebar.header("Rychlé odkazy")
+    st.sidebar.link_button(
+        "Github repozitář",
+        "https://github.com/JedlaTypek/latin-flashcard-gen",
+        icon=":material/code:",
+        width="stretch",
+    )
+    st.sidebar.link_button(
+        "Mé další projekty",
+        "https://jedlickaf.cz",
+        icon=":material/work:",
+        width="stretch",
+    )
+    st.sidebar.link_button(
+        "Napište mi!",
+        "mailto:jedlicka.filip@seznam.cz",
+        icon=":material/mail:",
+        width="stretch",
+    )
+
+    st.markdown("""
+    ### 📚 K čemu aplikace slouží?
+    Tento nástroj vznikl pro usnadnění studia latiny a tvorbu studijních kartiček (např. pro **AnkiWeb / AnkiMobile / AnkiDroid**). 
+    Slovíčka a jejich zpracování vycházejí z učebnice **Základy latinského jazyka pro posluchače teologie** od **Milana Šlesingera**.
+
+    * 📖 **Učebnice ke stažení:** Pokud učebnici nemáte po ruce v tištěné podobě, její PDF verzi si můžete stáhnout například [zde v knihovně Libri Nostri](https://librinostri.catholica.cz/download/ZaklLatJPrPoThSl-OCRpcb.pdf).
+
+    ---
+
+    ### 🚀 Plány do budoucna
+    Projekt se dále vyvíjí. V plánu je přidat do slovníčku všechny lekce z již zmíněné učebnice latiny a rozšířit funkčnost této aplikace také o podporu pro učebnici **Uvedení do novozákonní řečtiny** od **Josefa Bartoně**, aby sloužila jako komplexní pomůcka pro studium obou biblických/klasických jazyků.
+    """)
+
+    st.divider()
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        st.markdown("""
+        ### 💻 Open Source a podpora projektu
+        Tuto aplikaci programuji, spravuji a hostuji ve svém volném čase a **na vlastní náklady**. 
+        
+        * **Projekt byl, je a vždy bude zcela zdarma pro všechny návštěvníky.**
+        * Zdrojový kód je veřejně dostupný jako **open source** *(zde můžeš doplnit odkaz na svůj GitHub repozitář)*.
+
+        Pokud vám aplikace šetří čas při přípravě na zkoušky nebo při studiu jazyků a chcete podpořit její další vývoj a provoz serveru, můžete dobrovolně přispět libovolnou částkou přes platební QR kód. 
+        
+        Každá podpora pomůže pokrýt náklady na hosting a motivuje k přidávání dalších funkcí (včetně podpory novozákonní řečtiny). Děkuji!
+        """)
+
+    with col2:
+        if qr_path.is_file():
+            st.image(str(qr_path), caption="QR platba (CZK)", width="stretch")
+        else:
+            st.info("QR kód pro platbu momentálně není k dispozici.")
+    
+
+# ==============================================================================
 # HORNÍ MENU BAR (NAVIGACE)
 # ==============================================================================
 stranky = [
@@ -2024,6 +2091,12 @@ stranky = [
         title="Jak používat kartičky",
         icon=":material/help:",
         url_path="navod",
+    ),
+    st.Page(
+        stranka_o_projektu,
+        title="O projektu",
+        icon=":material/info:",
+        url_path="o-projektu",
     ),
     st.Page(
         stranka_prihlaseni,
