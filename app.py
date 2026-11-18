@@ -2050,7 +2050,7 @@ def stranka_o_projektu():
         Tuto aplikaci programuji, spravuji a hostuji ve svém volném čase a **na vlastní náklady**. 
         
         * **Projekt byl, je a vždy bude zcela zdarma pro všechny návštěvníky.**
-        * Zdrojový kód je veřejně dostupný jako **open source** *(zde můžeš doplnit odkaz na svůj GitHub repozitář)*.
+        * Zdrojový kód je veřejně dostupný jako **open source** dostupný na [Githubu](https://github.com/JedlaTypek/latin-flashcard-gen/).
 
         Pokud vám aplikace šetří čas při přípravě na zkoušky nebo při studiu jazyků a chcete podpořit její další vývoj a provoz serveru, můžete dobrovolně přispět libovolnou částkou přes platební QR kód. 
         
