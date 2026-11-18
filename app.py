@@ -14,7 +14,8 @@ import streamlit as st
 from druhy import analyzuj_slovicko, urci_deklinaci_adjektiva
 from pathlib import Path
 
-qr_path = Path(__file__).resolve().parent / "data" / "qr-platba.png"
+BASE_DIR = Path(__file__).resolve().parent
+qr_path = BASE_DIR / "qr-platba.png"  # (nebo BASE_DIR / "assets" / "qr-platba.png")
 
 try:
     from dotenv import load_dotenv
