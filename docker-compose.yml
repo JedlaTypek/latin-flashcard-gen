@@ -15,6 +15,7 @@ services:
     volumes:
       # Použití pojmenovaného svazku namísto relativní cesty
       - latin_flashcards_data:/app/data
+      - ./data/qr-platba.png:/app/data/qr-platba.png:ro
 
 # Definice pojmenovaného svazku
 volumes:
