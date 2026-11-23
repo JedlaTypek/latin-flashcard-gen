@@ -11,6 +11,7 @@ from datetime import datetime
 import pandas as pd
 import genanki
 import streamlit as st
+import streamlit.components.v1 as components
 from druhy import analyzuj_slovicko, urci_deklinaci_adjektiva
 from pathlib import Path
 
@@ -63,6 +64,61 @@ def odstran_diakritiku(text: str) -> str:
     decomposed = unicodedata.normalize("NFD", str(text))
     filtered = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
     return unicodedata.normalize("NFC", filtered)
+
+def aktivuj_ctrl_f_pro_sidebar(label_vyhledavani: str):
+    """
+    Zachytí Ctrl+F / Cmd+F v nadřazeném okně prohlížeče,
+    otevře sidebar (pokud je sbalený) a zaostří konkrétní text_input.
+    """
+    components.html(
+        f"""
+        <script>
+        const doc = window.parent.document;
+
+        // Odstraníme případný starý listener při re-runu Streamlitu, aby se nehromadily
+        if (doc._ctrlFHandler) {{
+            doc.removeEventListener('keydown', doc._ctrlFHandler);
+        }}
+
+        doc._ctrlFHandler = function(e) {{
+            // Zachytí Ctrl+F (Windows/Linux) nebo Cmd+F (Mac)
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {{
+                e.preventDefault();
+                e.stopPropagation();
+
+                // 1. Pokud je boční panel na menší obrazovce sbalený, zkusíme ho otevřít
+                const expandBtn = doc.querySelector('[data-testid="stExpandSidebarButton"]') 
+                               || doc.querySelector('[data-testid="collapsedControl"] button');
+                if (expandBtn) {{
+                    expandBtn.click();
+                }}
+
+                // 2. Najdeme input uvnitř stSidebar podle popisku (aria-label)
+                setTimeout(() => {{
+                    const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+                    if (!sidebar) return;
+
+                    let searchInput = sidebar.querySelector('input[aria-label="{label_vyhledavani}"]');
+                    
+                    // Záložní varianta: pokud by se label neshodoval, vezme první textový input v sidebaru
+                    if (!searchInput) {{
+                        searchInput = sidebar.querySelector('input[type="text"]');
+                    }}
+
+                    if (searchInput) {{
+                        searchInput.focus();
+                        searchInput.select(); // Rovnou označí případný předchozí hledaný text
+                    }}
+                }}, 50);
+            }}
+        }};
+
+        doc.addEventListener('keydown', doc._ctrlFHandler, true);
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 # --- NASTAVENÍ STRÁNKY A SESSION STATE ---
 st.set_page_config(page_title="Generátor karet do AnkiDroidu", page_icon="📚", layout="wide")
@@ -2447,3 +2503,5 @@ stranky = [
 
 pg = st.navigation(stranky, position="top")
 pg.run()
+
+aktivuj_ctrl_f_pro_sidebar("Hledat výraz:")
