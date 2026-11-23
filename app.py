@@ -56,12 +56,21 @@ def klic_serazeni_lekci(hodnota: str):
     """Přirozené řazení lekcí (čísla číselně, ostatní abecedně)."""
     return (int(hodnota) if hodnota.isdigit() else 9999, hodnota)
 
+def odstran_diakritiku(text: str) -> str:
+    """Odstraní diakritiku včetně háčků, čárek a makrónů (např. ā -> a, č -> c, ě -> e)."""
+    if not text:
+        return ""
+    decomposed = unicodedata.normalize("NFD", str(text))
+    filtered = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
+    return unicodedata.normalize("NFC", filtered)
+
 # --- NASTAVENÍ STRÁNKY A SESSION STATE ---
 st.set_page_config(page_title="Generátor karet do AnkiDroidu", page_icon="📚", layout="wide")
 
-# CSS úprava ikony bočního panelu:
-# - zavřený panel: hamburger ikona (Material Symbol 'menu' \e5d2)
-# - otevřený panel: zachována dvojitá šipka doleva (keyboard_double_arrow_left)
+# CSS a JS úprava:
+# - ikona bočního panelu: hamburger / dvojitá šipka
+# - přepínač diakritiky v tabulkách (hover toolbar vpravo nahoře i search bar)
+# - zachycení zkratky Ctrl+F pro focus vyhledávacího pole v levém panelu
 st.html(
     r"""
     <style>
@@ -79,7 +88,278 @@ st.html(
         display: inline-block !important;
     }
     </style>
-    """
+
+    <script>
+    // DŮLEŽITÉ: st.html spouští tento kód uvnitř iframu (sandbox="allow-same-origin allow-scripts").
+    // Veškeré DOM operace a monkey-patche musí jít přes window.parent, aby ovlivnily
+    // hlavní okno Streamlitu kde běží Glide Data Grid a kde probíhají keydown události.
+    (function() {
+        // Pracujeme výhradně s parent window a parent document
+        const W = window.parent;
+        const D = W.document;
+
+        // ── HELPER: odstranit diakritiku ──────────────────────────────────────────
+        function stripDiacritics(str) {
+            if (!str) return '';
+            return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
+        // ── STAV: citlivost na diakritiku (uloženo v parent window) ──────────────
+        if (typeof W.__diacriticsSensitive === 'undefined') {
+            W.__diacriticsSensitive = false;
+        }
+
+        // ── MONKEY-PATCH RegExp.prototype.test V PARENT WINDOW ───────────────────
+        // GDG (Glide Data Grid) používá: new RegExp(query, 'i').test(cellDisplayData)
+        // Patchujeme parent okno aby vyhledávání ignorovalo diakritiku.
+        if (!W.__diacriticsPatchInstalled) {
+            W.__diacriticsPatchInstalled = true;
+            const _origTest = W.RegExp.prototype.test;
+
+            // Kontrola alfanumerického znaku bez RegExp (vyhnout se rekurzi)
+            const _hasAlpha = function(src) {
+                for (let i = 0; i < src.length; i++) {
+                    const c = src.charCodeAt(i);
+                    if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122)) return true;
+                }
+                return false;
+            };
+
+            W.RegExp.prototype.test = function(str) {
+                const res = _origTest.call(this, str);
+                // Pokud: match, citlivý mód, nebo nestring → vrať rovnou
+                if (res || W.__diacriticsSensitive || typeof str !== 'string') {
+                    return res;
+                }
+                // Aplikuj jen na case-insensitive regexy s písmeny (GDG search)
+                if (this.ignoreCase && _hasAlpha(this.source)) {
+                    try {
+                        const cleanRegex = new W.RegExp(stripDiacritics(this.source), this.flags);
+                        return _origTest.call(cleanRegex, stripDiacritics(str));
+                    } catch (e) {
+                        return res;
+                    }
+                }
+                return res;
+            };
+        }
+
+        // ── CSS STYLY DO PARENT DOKUMENTU ────────────────────────────────────────
+        // (st.html <style> ovlivňuje jen iframe, styly GDG toggles musí být v parent)
+        if (!D.getElementById('__gdg-diacritics-styles')) {
+            const styleEl = D.createElement('style');
+            styleEl.id = '__gdg-diacritics-styles';
+            styleEl.textContent = `
+                .gdg-diacritics-toggle-container {
+                    display: inline-flex; align-items: center;
+                    margin-left: 6px; padding: 2px 8px;
+                    border-radius: 4px; background: rgba(128,128,128,0.15);
+                    font-size: 12px; user-select: none; cursor: pointer;
+                    white-space: nowrap; border: 1px solid rgba(128,128,128,0.2);
+                    transition: all 0.2s ease;
+                }
+                .gdg-diacritics-toggle-container:hover { background: rgba(128,128,128,0.25); }
+                .gdg-diacritics-toggle-label {
+                    display: flex; align-items: center; gap: 5px;
+                    cursor: pointer; margin: 0; font-size: 12px; color: inherit;
+                }
+                .gdg-diacritics-checkbox {
+                    cursor: pointer; margin: 0; width: 14px; height: 14px;
+                    accent-color: #ff4b4b;
+                }
+                .gdg-diacritics-text { font-size: 11px; font-weight: 500; }
+                .st-diacritics-toolbar-btn { display: inline-flex; align-items: center; }
+                .st-diacritics-btn {
+                    background: transparent; border: 1px solid rgba(128,128,128,0.25);
+                    border-radius: 4px; cursor: pointer; padding: 2px 6px;
+                    display: flex; align-items: center; justify-content: center;
+                    color: inherit; font-family: inherit; transition: all 0.2s ease; height: 28px;
+                }
+                .st-diacritics-btn:hover { background: rgba(128,128,128,0.15); }
+                .st-diacritics-btn.active {
+                    background: rgba(255,75,75,0.2); border-color: #ff4b4b;
+                    color: #ff4b4b; font-weight: bold;
+                }
+            `;
+            D.head.appendChild(styleEl);
+        }
+
+        // ── HELPER: retrigger GDG search (React-kompatibilní) ────────────────────
+        function retriggerGdgSearch() {
+            D.querySelectorAll('[data-testid="search-input"]').forEach(inp => {
+                if (!inp.value) return;
+                const setter = Object.getOwnPropertyDescriptor(
+                    W.HTMLInputElement.prototype, 'value'
+                ).set;
+                const val = inp.value;
+                setter.call(inp, val + '\u200b'); // zero-width space
+                inp.dispatchEvent(new W.Event('input', { bubbles: true }));
+                W.setTimeout(() => {
+                    setter.call(inp, val);
+                    inp.dispatchEvent(new W.Event('input', { bubbles: true }));
+                }, 16);
+            });
+        }
+
+        // ── NASTAVENÍ CITLIVOSTI NA DIAKRITIKU ───────────────────────────────────
+        function setDiacriticsSensitive(val) {
+            W.__diacriticsSensitive = !!val;
+
+            D.querySelectorAll('.gdg-diacritics-checkbox').forEach(cb => {
+                cb.checked = W.__diacriticsSensitive;
+            });
+            D.querySelectorAll('.st-diacritics-btn').forEach(btn => {
+                btn.classList.toggle('active', W.__diacriticsSensitive);
+            });
+
+            retriggerGdgSearch();
+
+            // Synchronizuj sidebar Streamlit toggle
+            const sidebarToggles = D.querySelectorAll(
+                '[data-testid="stSidebar"] [data-testid="stCheckbox"] input,' +
+                '[data-testid="stSidebar"] [data-testid="stToggle"] input'
+            );
+            sidebarToggles.forEach(stToggle => {
+                if (!stToggle || stToggle.checked === W.__diacriticsSensitive) return;
+                const par = stToggle.closest('[data-testid="stCheckbox"],[data-testid="stToggle"]');
+                if (par && par.textContent.toLowerCase().includes('diakritik')) {
+                    stToggle.click();
+                }
+            });
+        }
+        W.__setDiacriticsSensitive = setDiacriticsSensitive;
+
+        // ── INJECT TOGGLES DO GDG SEARCH BARU A TOOLBARU ────────────────────────
+        function attachTableDiacriticsToggles() {
+            // A) Přepínač uvnitř otevřeného search baru tabulky
+            D.querySelectorAll('.gdg-search-bar-inner').forEach(bar => {
+                if (bar.querySelector('.gdg-diacritics-toggle-container')) return;
+
+                const container = D.createElement('div');
+                container.className = 'gdg-diacritics-toggle-container';
+                container.title = 'Rozlišovat diakritiku (ā, č, ě, š, ž, ...)';
+
+                const label = D.createElement('label');
+                label.className = 'gdg-diacritics-toggle-label';
+
+                const checkbox = D.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'gdg-diacritics-checkbox';
+                checkbox.checked = !!W.__diacriticsSensitive;
+
+                const text = D.createElement('span');
+                text.className = 'gdg-diacritics-text';
+                text.textContent = 'Diakritika';
+
+                label.appendChild(checkbox);
+                label.appendChild(text);
+                container.appendChild(label);
+
+                checkbox.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    setDiacriticsSensitive(checkbox.checked);
+                });
+                container.addEventListener('click', (e) => e.stopPropagation());
+
+                bar.appendChild(container);
+            });
+
+            // B) Tlačítko "Āā" v plovoucím toolbaru nad tabulkou
+            D.querySelectorAll('[data-testid="stElementToolbar"] [data-testid="stElementToolbarButtonContainer"]').forEach(tb => {
+                if (tb.querySelector('.st-diacritics-toolbar-btn')) return;
+
+                const btnDiv = D.createElement('div');
+                btnDiv.className = 'st-diacritics-toolbar-btn';
+                btnDiv.setAttribute('data-testid', 'stElementToolbarButton');
+                btnDiv.title = 'Rozlišovat diakritiku (ā, č, ě, š, ž, ...)';
+
+                const btn = D.createElement('button');
+                btn.type = 'button';
+                btn.className = 'st-diacritics-btn' + (W.__diacriticsSensitive ? ' active' : '');
+                btn.innerHTML = '<span style="font-weight:700;font-size:12px;letter-spacing:-0.5px;">Āā</span>';
+
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    setDiacriticsSensitive(!W.__diacriticsSensitive);
+                });
+
+                btnDiv.appendChild(btn);
+                tb.insertBefore(btnDiv, tb.firstChild);
+            });
+        }
+
+        // ── MUTATION OBSERVER NA PARENT DOCUMENT ─────────────────────────────────
+        if (!W.__diacriticsObserverInstalled) {
+            W.__diacriticsObserverInstalled = true;
+            const observer = new W.MutationObserver(() => attachTableDiacriticsToggles());
+            observer.observe(D.body, { childList: true, subtree: true });
+            attachTableDiacriticsToggles();
+        }
+
+        // ── SYNCHRONIZACE ZE STREAMLIT SIDEBAR PŘEPÍNAČE ─────────────────────────
+        if (!W.__diacriticsSidebarListenerInstalled) {
+            W.__diacriticsSidebarListenerInstalled = true;
+            D.addEventListener('change', (e) => {
+                const target = e.target;
+                if (!target || !target.closest('[data-testid="stSidebar"]') || target.type !== 'checkbox') return;
+                const par = target.closest('[data-testid="stCheckbox"],[data-testid="stToggle"]');
+                if (par && par.textContent.toLowerCase().includes('diakritik')) {
+                    if (W.__diacriticsSensitive !== target.checked) {
+                        W.__diacriticsSensitive = target.checked;
+                        D.querySelectorAll('.gdg-diacritics-checkbox').forEach(cb => { cb.checked = W.__diacriticsSensitive; });
+                        D.querySelectorAll('.st-diacritics-btn').forEach(btn => btn.classList.toggle('active', W.__diacriticsSensitive));
+                        retriggerGdgSearch();
+                    }
+                }
+            });
+        }
+
+        // ── CTRL+F → FOCUS VYHLEDÁVÁNÍ V BOČNÍM PANELU ───────────────────────────
+        // Listener musí být na parent window s capture=true aby předešel browser Ctrl+F dialogu
+        if (!W.__diacriticsCtrlFInstalled) {
+            W.__diacriticsCtrlFInstalled = true;
+            W.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
+                    // Otevřít boční panel, pokud je zavřený
+                    const expandBtn = D.querySelector(
+                        '[data-testid="stExpandSidebarButton"] button,' +
+                        '[data-testid="collapsedControl"] button,' +
+                        '[data-testid="stExpandSidebarButton"],' +
+                        '[data-testid="collapsedControl"]'
+                    );
+                    if (expandBtn) expandBtn.click();
+
+                    const focusSearch = () => {
+                        const sidebar = D.querySelector('[data-testid="stSidebar"]');
+                        if (!sidebar) return false;
+                        const input = sidebar.querySelector(
+                            'input[placeholder*="Latina"], input[aria-label*="Hledat"], [data-testid="stTextInput"] input'
+                        );
+                        if (input) {
+                            input.focus();
+                            input.select();
+                            input.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    if (!focusSearch()) {
+                        W.setTimeout(focusSearch, 50);
+                        W.setTimeout(focusSearch, 150);
+                        W.setTimeout(focusSearch, 300);
+                    }
+                }
+            }, true); // capture=true: zachytit dříve než browser
+        }
+    })();
+    </script>
+    """,
+    unsafe_allow_javascript=True
 )
 
 if "nazev_balicku" not in st.session_state:
@@ -116,6 +396,8 @@ def nacti_data() -> pd.DataFrame:
     konj = df["Konjugace"].astype(str).str.strip()
     dekl = df["Deklinace"].astype(str).str.strip()
     df["konj./dekl."] = konj.where(konj != "", dekl)
+    df["_Latina_norm"] = df["Latina"].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
+    df["_Cestina_norm"] = df["Čeština"].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
     return df
 
 def uloz_data(novy_df: pd.DataFrame) -> bool:
@@ -370,7 +652,8 @@ def aplikuj_filtry(
     vybrane_druhy: list,
     vybrane_konjugace: list,
     vybrane_deklinace: list,
-    hledany_text: str = ""
+    hledany_text: str = "",
+    citlive_na_diakritiku: bool = False
 ) -> pd.DataFrame:
     vsechny_lekce = set(l for l in data['Lekce'].unique() if l)
     vsechny_konj = set(k for k in data['Konjugace'].unique() if k)
@@ -408,11 +691,27 @@ def aplikuj_filtry(
         df_f = pd.DataFrame(columns=data.columns)
 
     if hledany_text and hledany_text.strip():
-        q = hledany_text.strip().lower()
-        df_f = df_f[
-            df_f['Latina'].str.lower().str.contains(q, na=False) |
-            df_f['Čeština'].str.lower().str.contains(q, na=False)
-        ]
+        q_raw = hledany_text.strip()
+        if citlive_na_diakritiku:
+            q = q_raw.lower()
+            df_f = df_f[
+                df_f['Latina'].astype(str).str.lower().str.contains(q, na=False, regex=False) |
+                df_f['Čeština'].astype(str).str.lower().str.contains(q, na=False, regex=False)
+            ]
+        else:
+            q_clean = odstran_diakritiku(q_raw.lower())
+            if '_Latina_norm' in df_f.columns and '_Cestina_norm' in df_f.columns:
+                df_f = df_f[
+                    df_f['_Latina_norm'].str.contains(q_clean, na=False, regex=False) |
+                    df_f['_Cestina_norm'].str.contains(q_clean, na=False, regex=False)
+                ]
+            else:
+                lat_norm = df_f['Latina'].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
+                ces_norm = df_f['Čeština'].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
+                df_f = df_f[
+                    lat_norm.str.contains(q_clean, na=False, regex=False) |
+                    ces_norm.str.contains(q_clean, na=False, regex=False)
+                ]
 
     return df_f
 
@@ -1287,8 +1586,32 @@ def stranka_generator():
             key="gen_dekl"
         )
 
+    # 4. Vyhledávání textu
+    hledany_text = st.sidebar.text_input(
+        "Hledat výraz:",
+        placeholder="Latina nebo čeština...",
+        icon=":material/search:",
+        key="gen_search"
+    )
+    citlive_diakritika = st.sidebar.toggle(
+        "Rozlišovat diakritiku",
+        value=st.session_state.get("citlive_diakritika", False),
+        key="gen_diakritika",
+        help="Zapněte pro přesné vyhledávání včetně háčků, čárek a makrónů (ā, ē, ī, ō, ū)"
+    )
+    st.session_state["citlive_diakritika"] = citlive_diakritika
+
     # Aplikování filtrů na data pomocí sdílené funkce
-    df_filtered = aplikuj_filtry(df, vybrane_lekce, vybrane_druhy, vybrane_konjugace, vybrane_deklinace)
+    df_filtered = aplikuj_filtry(
+        df,
+        vybrane_lekce,
+        vybrane_druhy,
+        vybrane_konjugace,
+        vybrane_deklinace,
+        hledany_text,
+        citlive_diakritika
+    )
+    st.sidebar.metric("Vyfiltrováno kartiček", len(df_filtered))
 
     # Hlavní plocha (zobrazení a export)
     st.subheader(f"Nalezeno slovíček: {len(df_filtered)}")
@@ -1500,8 +1823,23 @@ def stranka_slovnik():
         icon=":material/search:",
         key="admin_search"
     )
+    citlive_diakritika = st.sidebar.toggle(
+        "Rozlišovat diakritiku",
+        value=st.session_state.get("citlive_diakritika", False),
+        key="admin_diakritika",
+        help="Zapněte pro přesné vyhledávání včetně háčků, čárek a makrónů (ā, ē, ī, ō, ū)"
+    )
+    st.session_state["citlive_diakritika"] = citlive_diakritika
 
-    df_filtered = aplikuj_filtry(df, vybrane_lekce, vybrane_druhy, vybrane_konjugace, vybrane_deklinace, hledany_text)
+    df_filtered = aplikuj_filtry(
+        df,
+        vybrane_lekce,
+        vybrane_druhy,
+        vybrane_konjugace,
+        vybrane_deklinace,
+        hledany_text,
+        citlive_diakritika
+    )
     st.sidebar.metric("Vyfiltrováno kartiček", len(df_filtered))
 
     if not st.session_state.admin_prihlasen:
@@ -1548,7 +1886,7 @@ def stranka_slovnik():
 
         with tab_slovnik:
             # Reset označených řádků při změně filtrů
-            filtr_sig = (tuple(vybrane_lekce), tuple(vybrane_druhy), tuple(vybrane_konjugace), tuple(vybrane_deklinace), hledany_text)
+            filtr_sig = (tuple(vybrane_lekce), tuple(vybrane_druhy), tuple(vybrane_konjugace), tuple(vybrane_deklinace), hledany_text, citlive_diakritika)
             if st.session_state.get("admin_last_filtr") != filtr_sig:
                 st.session_state.admin_last_filtr = filtr_sig
                 st.session_state.admin_selected_rows = []
