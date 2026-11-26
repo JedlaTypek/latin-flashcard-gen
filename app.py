@@ -943,6 +943,56 @@ def reset_generator_balicek_state(lang: str | None = None):
         st.session_state[f"{l}_generator_balicek_dialog"] = False
 
 
+def dopln_gramatiku_v_df(
+    df: pd.DataFrame, lang: str = "latina", prepis_existujici: bool = False
+) -> pd.DataFrame:
+    """
+    Automaticky doplní mluvnické kategorie (Slovní druh, Konjugace, Deklinace)
+    pro jazyky s podporou gramatické analýzy (latina).
+    """
+    cfg = JAZYKY[lang]
+    if not cfg["ma_gramatiku"] or df is None or df.empty:
+        return df
+
+    col_cizi = cfg["sloupec"]
+    res = df.copy()
+    for col in ["Slovní druh", "Konjugace", "Deklinace"]:
+        if col not in res.columns:
+            res[col] = ""
+        res[col] = res[col].fillna("").astype(str).str.strip()
+
+    for idx, row in res.iterrows():
+        lat = str(row.get(col_cizi, "")).strip()
+        if not lat:
+            continue
+
+        cur_druh = str(row.get("Slovní druh", "")).strip()
+        cur_konj = str(row.get("Konjugace", "")).strip()
+        cur_dekl = str(row.get("Deklinace", "")).strip()
+
+        if prepis_existujici or not cur_druh:
+            druh, konj, dekl = analyzuj_slovicko(lat)
+            res.at[idx, "Slovní druh"] = druh
+            res.at[idx, "Konjugace"] = konj if druh == "Sloveso" else ""
+            res.at[idx, "Deklinace"] = (
+                dekl if druh in ["Podstatné jméno", "Přídavné jméno"] else ""
+            )
+        else:
+            if cur_druh == "Sloveso" and not cur_konj:
+                _, konj, _ = analyzuj_slovicko(lat)
+                if konj:
+                    res.at[idx, "Konjugace"] = konj
+            elif cur_druh in ["Podstatné jméno", "Přídavné jméno"] and not cur_dekl:
+                _, _, dekl = analyzuj_slovicko(lat)
+                if not dekl and cur_druh == "Přídavné jméno":
+                    clean_parts = [p.strip().lower() for p in lat.split(",")]
+                    dekl = urci_deklinaci_adjektiva(clean_parts)
+                if dekl:
+                    res.at[idx, "Deklinace"] = dekl
+
+    return res
+
+
 def reset_import_csv_state(lang: str | None = None):
     langs = [lang] if lang else list(JAZYKY.keys())
     for l in langs:
@@ -953,9 +1003,12 @@ def reset_import_csv_state(lang: str | None = None):
             "csv_import_uploader",
             "csv_import_vychozi_lekce",
             "csv_import_dupl_rezim",
-            "csv_import_data_editor",
+            "csv_import_editor_ver",
         ]:
             st.session_state.pop(f"{l}_{k}", None)
+        for key_name in list(st.session_state.keys()):
+            if key_name.startswith(f"{l}_csv_import_data_editor"):
+                st.session_state.pop(key_name, None)
 
 
 def reset_zadost_state(lang: str | None = None):
@@ -1302,8 +1355,13 @@ def dialog_import_csv(lang: str, aktualni_df: pd.DataFrame):
         file_id = f"{lang}_{uploaded_file.name}_{uploaded_file.size}_{vychozi_lekce}"
         if st.session_state.get(f"{lang}_csv_import_last_file_id") != file_id:
             df_parsed = parsuj_import_csv(uploaded_file.getvalue(), vychozi_lekce, lang=lang)
+            if ma_gramatiku:
+                df_parsed = dopln_gramatiku_v_df(df_parsed, lang=lang, prepis_existujici=False)
             st.session_state[f"{lang}_csv_import_data"] = df_parsed
             st.session_state[f"{lang}_csv_import_last_file_id"] = file_id
+            st.session_state[f"{lang}_csv_import_editor_ver"] = (
+                st.session_state.get(f"{lang}_csv_import_editor_ver", 0) + 1
+            )
 
     df_k_uprave = st.session_state.get(f"{lang}_csv_import_data")
 
@@ -1317,23 +1375,40 @@ def dialog_import_csv(lang: str, aktualni_df: pd.DataFrame):
             )
 
             if ma_gramatiku:
-                druhy_moznosti = list(cfg["druhy_vychozi"])
-                konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
-                dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
+                druhy_v_datech = [
+                    str(d).strip()
+                    for d in df_k_uprave.get("Slovní druh", pd.Series(dtype=str)).unique()
+                    if str(d).strip()
+                ]
+                konj_v_datech = [
+                    str(k).strip()
+                    for k in df_k_uprave.get("Konjugace", pd.Series(dtype=str)).unique()
+                    if str(k).strip()
+                ]
+                dekl_v_datech = [
+                    str(d).strip()
+                    for d in df_k_uprave.get("Deklinace", pd.Series(dtype=str)).unique()
+                    if str(d).strip()
+                ]
 
-                if "konj./dekl." not in df_k_uprave.columns:
-                    konj_s = df_k_uprave.get("Konjugace", pd.Series("", index=df_k_uprave.index)).astype(str).str.strip()
-                    dekl_s = df_k_uprave.get("Deklinace", pd.Series("", index=df_k_uprave.index)).astype(str).str.strip()
-                    df_k_uprave["konj./dekl."] = konj_s.where(konj_s != "", dekl_s)
+                druhy_moznosti = list(dict.fromkeys([""] + list(cfg["druhy_vychozi"]) + druhy_v_datech))
+                konj_moznosti = list(
+                    dict.fromkeys(["", "1", "2", "3", "4", "nepravidelná"] + konj_v_datech)
+                )
+                dekl_moznosti = list(
+                    dict.fromkeys(
+                        ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"] + dekl_v_datech
+                    )
+                )
 
                 col_cfg_editor = {
                     "Lekce": st.column_config.TextColumn("Lekce", required=True, width="small"),
                     "Latina": st.column_config.TextColumn("Latina", required=True, width="medium"),
                     "Čeština": st.column_config.TextColumn("Čeština", required=True, width="medium"),
                     "Slovní druh": st.column_config.SelectboxColumn(
-                        "Slovní druh", options=druhy_moznosti, required=True, width="medium"
+                        "Slovní druh", options=druhy_moznosti, width="medium"
                     ),
-                    "konj./dekl.": st.column_config.TextColumn("konj./dekl.", width="small"),
+                    "konj./dekl.": None,
                     "Konjugace": st.column_config.SelectboxColumn(
                         "Konjugace (slovesa)", options=konj_moznosti, width="small"
                     ),
@@ -1355,12 +1430,13 @@ def dialog_import_csv(lang: str, aktualni_df: pd.DataFrame):
                     "Rod": None,
                 }
 
+            editor_ver = st.session_state.get(f"{lang}_csv_import_editor_ver", 0)
             edited_df = st.data_editor(
                 df_k_uprave,
                 num_rows="dynamic",
                 width="stretch",
                 column_config=col_cfg_editor,
-                key=f"{lang}_csv_import_data_editor",
+                key=f"{lang}_csv_import_data_editor_{editor_ver}",
             )
 
             mask_valid = (edited_df[col_cizi].astype(str).str.strip() != "") & (
@@ -1376,6 +1452,18 @@ def dialog_import_csv(lang: str, aktualni_df: pd.DataFrame):
                     key=f"{lang}_btn_csv_import_save",
                     disabled=(pocet_platnych == 0),
                 )
+                if ma_gramatiku:
+                    if st.button(
+                        "Doplnit mluvnické kategorie",
+                        icon=":material/auto_fix_high:",
+                        key=f"{lang}_btn_csv_import_autofill",
+                        help="Automaticky doplní chybějící slovní druh, konjugaci a deklinaci u řádků v tabulce",
+                    ):
+                        st.session_state[f"{lang}_csv_import_data"] = dopln_gramatiku_v_df(
+                            edited_df, lang=lang, prepis_existujici=False
+                        )
+                        st.session_state[f"{lang}_csv_import_editor_ver"] = editor_ver + 1
+                        st.rerun()
                 tlacitko_zrusit = st.button("Zrušit", key=f"{lang}_btn_csv_import_cancel")
 
             if tlacitko_zrusit:
@@ -1384,10 +1472,22 @@ def dialog_import_csv(lang: str, aktualni_df: pd.DataFrame):
 
             if tlacitko_import:
                 df_ciste = edited_df[mask_valid].copy()
+                if ma_gramatiku:
+                    df_ciste = dopln_gramatiku_v_df(df_ciste, lang=lang, prepis_existujici=False)
+
                 for col in cfg["sloupce_csv"]:
                     if col not in df_ciste.columns:
                         df_ciste[col] = ""
                     df_ciste[col] = df_ciste[col].fillna("").astype(str).str.strip()
+
+                if ma_gramatiku:
+                    df_ciste["Konjugace"] = df_ciste["Konjugace"].where(
+                        df_ciste["Slovní druh"] == "Sloveso", ""
+                    )
+                    df_ciste["Deklinace"] = df_ciste["Deklinace"].where(
+                        df_ciste["Slovní druh"].isin(["Podstatné jméno", "Přídavné jméno"]), ""
+                    )
+
                 df_ciste = df_ciste[cfg["sloupce_csv"]]
 
                 preskoceno = 0
