@@ -1,25 +1,11 @@
-# Virtuální prostředí a cache
-.venv/
-venv/
+.git
+.gitignore
 __pycache__/
 *.py[cod]
-*$py.class
+.venv/
+venv/
+.env
+.streamlit/secrets.toml
 
-# Verzovací systémy a konfigurace IDE/agentů
-.git/
-.gitignore
-.agents/
-.claude/
-.idea/
-.vscode/
-
-# Dokumenty a nepoužívané soubory v runtime
-*.doc
-*.ods
-.DS_Store
-
-# Docker soubory
-Dockerfile
-docker-compose*.yml
-.dockerignore
-README.md
+# Nikdy nezabalovat lokální data do Docker image
+data/

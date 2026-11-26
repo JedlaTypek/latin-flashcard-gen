@@ -1,18 +1,16 @@
 services:
-  latin-flashcard-gen:
+  flashcard-gen:
     build: .
-    container_name: latin-flashcard-gen
+    container_name: flashcard-gen
     restart: unless-stopped
     ports:
       - "8501:8501"
     environment:
-      - STREAMLIT_SERVER_HEADLESS=true
-      - STREAMLIT_SERVER_ENABLE_CORS=false
-      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     volumes:
-      - latin_flashcards_data:/app/data
+      # Volume je připojen výhradně na /app/data — kód aplikace se vždy aktualizuje z image
+      - flashcard_data:/app/data
 
 volumes:
-  latin_flashcards_data:
-    name: latin_flashcards_data
+  flashcards_data:
+    name: flashcards_data

@@ -23,13 +23,18 @@ from jazyky import (
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-qr_path = BASE_DIR / "qr-platba.png"  # (nebo BASE_DIR / "assets" / "qr-platba.png")
+qr_path = (
+    BASE_DIR / "qr-platba.png"
+    if (BASE_DIR / "qr-platba.png").is_file()
+    else BASE_DIR / "assets" / "qr-platba.png"
+)
 
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
+
 
 # --- POMOCNÉ FUNKCE PRO HESLO A .ENV ---
 def nacti_admin_heslo() -> str:
@@ -54,11 +59,13 @@ def nacti_admin_heslo() -> str:
             pass
     return ""
 
+
 def over_heslo(zadane: str, spravne: str) -> bool:
     """Bezpečné porovnání hesel odolné vůči časovým útokům (timing attacks)."""
     if not spravne:
         return False
     return hmac.compare_digest(zadane.strip(), spravne.strip())
+
 
 def aktivuj_ctrl_f_pro_sidebar(label_vyhledavani: str):
     """
@@ -118,12 +125,14 @@ def aktivuj_ctrl_f_pro_sidebar(label_vyhledavani: str):
         unsafe_allow_javascript=True,
     )
 
+
 # --- NASTAVENÍ STRÁNKY A SESSION STATE ---
 st.set_page_config(page_title="Generátor karet do Anki", page_icon="📚", layout="wide")
 
 # CSS a JS úprava:
 # - ikona bočního panelu: hamburger / dvojitá šipka
 # - přepínač diakritiky v tabulkách (hover toolbar vpravo nahoře i search bar)
+# - rozložení horního menu (jazyky vlevo, ostatní položky vpravo)
 # - zachycení zkratky Ctrl+F pro focus vyhledávacího pole v levém panelu
 st.html(
     r"""
@@ -144,11 +153,7 @@ st.html(
     </style>
 
     <script>
-    // DŮLEŽITÉ: st.html spouští tento kód uvnitř iframu (sandbox="allow-same-origin allow-scripts").
-    // Veškeré DOM operace a monkey-patche musí jít přes window.parent, aby ovlivnily
-    // hlavní okno Streamlitu kde běží Glide Data Grid a kde probíhají keydown události.
     (function() {
-        // Pracujeme výhradně s parent window a parent document
         const W = window.parent;
         const D = W.document;
 
@@ -164,14 +169,10 @@ st.html(
         }
 
         // ── MONKEY-PATCH RegExp.prototype.test V PARENT WINDOW ───────────────────
-        // GDG (Glide Data Grid) používá: new RegExp(query, 'i').test(cellDisplayData)
-        // Patchujeme parent okno aby vyhledávání ignorovalo diakritiku.
         if (!W.__diacriticsPatchInstalled) {
             W.__diacriticsPatchInstalled = true;
             const _origTest = W.RegExp.prototype.test;
 
-            // Kontrola alfanumerického znaku bez RegExp (vyhnout se rekurzi)
-            // Zahrnuje ASCII, latinku s diakritikou (českou i makróny) a řeckou abecedu včetně polytonické
             const _hasAlpha = function(src) {
                 for (let i = 0; i < src.length; i++) {
                     const c = src.charCodeAt(i);
@@ -190,11 +191,9 @@ st.html(
 
             W.RegExp.prototype.test = function(str) {
                 const res = _origTest.call(this, str);
-                // Pokud: match, citlivý mód, nebo nestring → vrať rovnou
                 if (res || W.__diacriticsSensitive || typeof str !== 'string') {
                     return res;
                 }
-                // Aplikuj jen na case-insensitive regexy s písmeny (GDG search)
                 if (this.ignoreCase && _hasAlpha(this.source)) {
                     try {
                         const cleanRegex = new W.RegExp(stripDiacritics(this.source), this.flags);
@@ -208,7 +207,6 @@ st.html(
         }
 
         // ── CSS STYLY DO PARENT DOKUMENTU ────────────────────────────────────────
-        // (st.html <style> ovlivňuje jen iframe, styly GDG toggles musí být v parent)
         if (!D.getElementById('__gdg-diacritics-styles')) {
             const styleEl = D.createElement('style');
             styleEl.id = '__gdg-diacritics-styles';
@@ -255,7 +253,7 @@ st.html(
                     W.HTMLInputElement.prototype, 'value'
                 ).set;
                 const val = inp.value;
-                setter.call(inp, val + '\u200b'); // zero-width space
+                setter.call(inp, val + '\u200b');
                 inp.dispatchEvent(new W.Event('input', { bubbles: true }));
                 W.setTimeout(() => {
                     setter.call(inp, val);
@@ -277,7 +275,6 @@ st.html(
 
             retriggerGdgSearch();
 
-            // Synchronizuj sidebar Streamlit toggle
             const sidebarToggles = D.querySelectorAll(
                 '[data-testid="stSidebar"] [data-testid="stCheckbox"] input,' +
                 '[data-testid="stSidebar"] [data-testid="stToggle"] input'
@@ -294,7 +291,6 @@ st.html(
 
         // ── INJECT TOGGLES DO GDG SEARCH BARU A TOOLBARU ────────────────────────
         function attachTableDiacriticsToggles() {
-            // Synchronizuj výchozí stav ze sidebar přepínače při přechodu na jinou stránku/jazyk
             const sidebarToggles = D.querySelectorAll(
                 '[data-testid="stSidebar"] [data-testid="stCheckbox"] input,' +
                 '[data-testid="stSidebar"] [data-testid="stToggle"] input'
@@ -311,7 +307,6 @@ st.html(
                 }
             });
 
-            // A) Přepínač uvnitř otevřeného search baru tabulky
             D.querySelectorAll('.gdg-search-bar-inner').forEach(bar => {
                 if (bar.querySelector('.gdg-diacritics-toggle-container')) return;
 
@@ -344,7 +339,6 @@ st.html(
                 bar.appendChild(container);
             });
 
-            // B) Tlačítko "Āā" v plovoucím toolbaru nad tabulkou
             D.querySelectorAll('[data-testid="stElementToolbar"] [data-testid="stElementToolbarButtonContainer"]').forEach(tb => {
                 if (tb.querySelector('.st-diacritics-toolbar-btn')) return;
 
@@ -367,7 +361,8 @@ st.html(
                 tb.insertBefore(btnDiv, tb.firstChild);
             });
         }
-// ── ROZLOŽENÍ HORNÍHO MENU: JAZYKY VLEVO, OSTATNÍ POLOŽKY VPRAVO ──────────
+
+        // ── ROZLOŽENÍ HORNÍHO MENU: JAZYKY VLEVO, OSTATNÍ POLOŽKY VPRAVO ──────────
         function organizeTopNav() {
             const header = D.querySelector('header[data-testid="stHeader"]');
             if (!header) return;
@@ -439,7 +434,6 @@ st.html(
 
             if (foundItems.length < 2) return;
 
-            // Najdeme nejbližšího společného rodiče (LCA) všech položek menu
             let lca = foundItems[0].el.parentElement;
             while (lca && lca !== header) {
                 if (foundItems.every(item => lca.contains(item.el))) {
@@ -449,7 +443,6 @@ st.html(
             }
             if (!lca || lca === header) return;
 
-            // Roztáhneme LCA i jeho obalové prvky v hlavičce na celou dostupnou šířku
             lca.classList.add('custom-topnav-lca');
             let anc = lca.parentElement;
             while (anc && anc !== header) {
@@ -460,7 +453,6 @@ st.html(
                 anc = anc.parentElement;
             }
 
-            // Namapujeme položky na přímé potomky LCA
             const childOrders = new Map();
             for (const { el, ord } of foundItems) {
                 let directChild = el;
@@ -528,7 +520,6 @@ st.html(
         }
 
         // ── CTRL+F → FOCUS VYHLEDÁVÁNÍ V BOČNÍM PANELU ───────────────────────────
-        // Listener musí být na parent window s capture=true aby předešel browser Ctrl+F dialogu
         if (!W.__diacriticsCtrlFInstalled) {
             W.__diacriticsCtrlFInstalled = true;
             W.addEventListener('keydown', function(e) {
@@ -537,7 +528,6 @@ st.html(
                     e.stopPropagation();
                     e.stopImmediatePropagation();
 
-                    // Otevřít boční panel, pokud je zavřený
                     const expandBtn = D.querySelector(
                         '[data-testid="stExpandSidebarButton"] button,' +
                         '[data-testid="collapsedControl"] button,' +
@@ -567,68 +557,122 @@ st.html(
                         W.setTimeout(focusSearch, 300);
                     }
                 }
-            }, true); // capture=true: zachytit dříve než browser
+            }, true);
         }
     })();
     </script>
     """,
-    unsafe_allow_javascript=True
+    unsafe_allow_javascript=True,
 )
 
 if "admin_prihlasen" not in st.session_state:
     st.session_state.admin_prihlasen = False
 
+# ==============================================================================
+# CESTY K PERZISTENTNÍMU ÚLOŽIŠTI A INICIALIZACE DATABÁZE
+# ==============================================================================
+KNIHOVNA_JSON_PATH = os.path.join(DATA_DIR, "knihovna_balicku.json")
+BALICKY_DIR = os.path.join(DATA_DIR, "balicky")
+
+
+def zajisti_csv_jazyka(lang: str) -> str:
+    """
+    Zajistí existenci adresářové struktury (/app/data/...) a validního CSV souboru
+    s hlavičkou pro daný jazyk, pokud ještě neexistuje nebo je prázdný.
+    """
+    cfg = JAZYKY[lang]
+    csv_soubor = get_csv_path(lang)
+    adresar = os.path.dirname(csv_soubor)
+    if adresar:
+        os.makedirs(adresar, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(BALICKY_DIR, exist_ok=True)
+
+    if not os.path.exists(csv_soubor) or os.path.getsize(csv_soubor) == 0:
+        pd.DataFrame(columns=cfg["sloupce_csv"]).to_csv(
+            csv_soubor, sep=";", index=False, encoding="utf-8"
+        )
+    return csv_soubor
+
+
+def inicializuj_uloziste() -> None:
+    """Inicializuje datové adresáře a prázdné CSV soubory pro všechny nakonfigurované jazyky."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(BALICKY_DIR, exist_ok=True)
+    for lang_kod in JAZYKY:
+        zajisti_csv_jazyka(lang_kod)
+
+
+inicializuj_uloziste()
+
+
 # --- NAČTENÍ A UKLÁDÁNÍ DAT ---
 @st.cache_data
 def nacti_data(lang: str = "latina") -> pd.DataFrame:
     cfg = JAZYKY[lang]
-    csv_soubor = get_csv_path(lang)
+    csv_soubor = zajisti_csv_jazyka(lang)
     col_cizi = cfg["sloupec"]
 
-    df_lang = pd.read_csv(csv_soubor, sep=";", dtype=str)
+    try:
+        df_lang = pd.read_csv(csv_soubor, sep=";", dtype=str)
+    except pd.errors.EmptyDataError:
+        pd.DataFrame(columns=cfg["sloupce_csv"]).to_csv(
+            csv_soubor, sep=";", index=False, encoding="utf-8"
+        )
+        df_lang = pd.DataFrame(columns=cfg["sloupce_csv"], dtype=str)
+
     df_lang.fillna("", inplace=True)
 
-    for col in ["Lekce", col_cizi, "Čeština", "Slovní druh"]:
+    povinne_sloupce = list(dict.fromkeys(["Lekce", col_cizi, "Čeština", "Slovní druh"] + cfg["sloupce_csv"]))
+    for col in povinne_sloupce:
         if col not in df_lang.columns:
-            df_lang[col] = ""
+            df_lang[col] = pd.Series(dtype="str")
 
     if cfg["ma_gramatiku"]:
         if "Konjugace" not in df_lang.columns:
-            df_lang["Konjugace"] = ""
+            df_lang["Konjugace"] = pd.Series(dtype="str")
         if "Deklinace" not in df_lang.columns:
-            df_lang["Deklinace"] = ""
+            df_lang["Deklinace"] = pd.Series(dtype="str")
 
         # Doplnění deklinace pro přídavná jména, pokud v datech chybí
-        mask_adj_bez_dekl = (df_lang["Slovní druh"] == "Přídavné jméno") & (
-            df_lang["Deklinace"].str.strip() == ""
-        )
-        if mask_adj_bez_dekl.any():
-            for idx in df_lang[mask_adj_bez_dekl].index:
-                clean_parts = [p.strip().lower() for p in str(df_lang.loc[idx, col_cizi]).split(",")]
-                df_lang.loc[idx, "Deklinace"] = urci_deklinaci_adjektiva(clean_parts)
+        if len(df_lang) > 0:
+            mask_adj_bez_dekl = (df_lang["Slovní druh"] == "Přídavné jméno") & (
+                df_lang["Deklinace"].str.strip() == ""
+            )
+            if mask_adj_bez_dekl.any():
+                for idx in df_lang[mask_adj_bez_dekl].index:
+                    clean_parts = [p.strip().lower() for p in str(df_lang.loc[idx, col_cizi]).split(",")]
+                    df_lang.loc[idx, "Deklinace"] = urci_deklinaci_adjektiva(clean_parts)
 
         konj = df_lang["Konjugace"].astype(str).str.strip()
         dekl = df_lang["Deklinace"].astype(str).str.strip()
         df_lang["konj./dekl."] = konj.where(konj != "", dekl)
     else:
         if "Rod" not in df_lang.columns:
-            df_lang["Rod"] = ""
+            df_lang["Rod"] = pd.Series(dtype="str")
 
-    df_lang["_Cizi_norm"] = df_lang[col_cizi].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
-    df_lang["_Cestina_norm"] = df_lang["Čeština"].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
+    df_lang["_Cizi_norm"] = pd.Series(
+        [odstran_diakritiku(str(s).lower()) for s in df_lang[col_cizi].fillna("")],
+        index=df_lang.index,
+        dtype="str",
+    )
+    df_lang["_Cestina_norm"] = pd.Series(
+        [odstran_diakritiku(str(s).lower()) for s in df_lang["Čeština"].fillna("")],
+        index=df_lang.index,
+        dtype="str",
+    )
     return df_lang
 
 
 def ziskej_data_jazyka(lang: str) -> pd.DataFrame | None:
-    """Bezpečně načte data pro daný jazyk a při chybějícím souboru zobrazí chybu."""
+    """Načte data pro daný jazyk (při chybějícím CSV automaticky založí prázdnou databázi)."""
     try:
         return nacti_data(lang)
-    except FileNotFoundError:
+    except Exception as e:
         csv_soubor = get_csv_path(lang)
         cfg = JAZYKY[lang]
         st.error(
-            f"Chyba: Soubor '{csv_soubor}' pro jazyk {cfg['nazev']} nebyl nalezen. "
-            f"Ujisti se, že je umístěn ve složce '{cfg['adresar']}/'."
+            f"Chyba při načítání databáze '{csv_soubor}' pro jazyk {cfg['nazev']}: {e}"
         )
         return None
 
@@ -657,10 +701,6 @@ def uloz_data(novy_df: pd.DataFrame, lang: str = "latina") -> bool:
 # ==============================================================================
 # SPRÁVA KNIHOVNY BALÍČKŮ A ADMIN STATUS
 # ==============================================================================
-KNIHOVNA_JSON_PATH = os.path.join(DATA_DIR, "knihovna_balicku.json")
-BALICKY_DIR = os.path.join(DATA_DIR, "balicky")
-
-
 def nacti_knihovnu() -> list:
     """Načte seznam balíčků z knihovna_balicku.json."""
     if not os.path.exists(KNIHOVNA_JSON_PATH):
@@ -983,6 +1023,7 @@ def on_admin_delete_click(lang: str):
         st.session_state[f"{lang}_delete_row_idx"] = click.row
     elif click is not None and isinstance(click, dict) and "row" in click:
         st.session_state[f"{lang}_delete_row_idx"] = click["row"]
+
 
 # ==============================================================================
 # MODÁLNÍ DIALOGY ADMINISTRACE A GENERÁTORU
@@ -1789,6 +1830,7 @@ def dialog_vytvorit_balicek(lang: str, df_filtered: pd.DataFrame):
                 key=f"{lang}_btn_dl_pub_done",
             )
 
+
 # ==============================================================================
 # STRÁNKA 1: GENERÁTOR KARTIČEK
 # ==============================================================================
@@ -1803,12 +1845,6 @@ def stranka_generator(lang: str = "latina"):
     df_lang = ziskej_data_jazyka(lang)
     if df_lang is None:
         return
-
-    st.info(
-        "💡 **Chybí vám nějaké slovo?**\n\n"
-        f"Pokud v databázi postrádáte některé slovíčko, můžete požádat o jeho přidání v záložce [Slovník]({cfg['url_slovnik']}).",
-        icon=":material/info:",
-    )
 
     # Boční panel pro filtry generátoru
     st.sidebar.header("Nastavení filtru")
@@ -1898,6 +1934,20 @@ def stranka_generator(lang: str = "latina"):
         lang=lang,
     )
     st.sidebar.metric("Vyfiltrováno kartiček", len(df_filtered))
+
+    if len(df_lang) == 0:
+        st.info(
+            f"Slovník pro jazyk **{cfg['nazev']}** je zatím prázdný. "
+            f"Slovíčka může přidat nebo naimportovat z CSV správce v záložce [Slovník]({cfg['url_slovnik']}).",
+            icon=":material/info:",
+        )
+        return
+
+    st.info(
+        "💡 **Chybí vám nějaké slovo?**\n\n"
+        f"Pokud v databázi postrádáte některé slovíčko, můžete požádat o jeho přidání v záložce [Slovník]({cfg['url_slovnik']}).",
+        icon=":material/info:",
+    )
 
     # Hlavní plocha (zobrazení a export)
     st.subheader(f"Nalezeno slovíček: {len(df_filtered)}")
@@ -2193,22 +2243,28 @@ def stranka_slovnik(lang: str = "latina"):
             st.session_state[f"{lang}_zadost_dialog_aktivni"] = True
             st.rerun()
 
-        st.caption(f"Zobrazeno **{len(df_filtered)}** z celkem {len(df_lang)} kartiček")
-        if len(df_filtered) == 0:
-            st.info("Zadaným filtrům neodpovídá žádné slovíčko.")
-            if hledany_text and hledany_text.strip():
-                st.markdown(
-                    f"Nenašli jste slovo **{hledany_text.strip()}**? "
-                    "Klikněte na tlačítko výše a požádejte o jeho přidání."
-                )
-        else:
-            st.dataframe(
-                df_filtered[cfg["sloupce_tabulka"]],
-                hide_index=True,
-                width="stretch",
-                key=f"{lang}_public_slovnik_df",
-                alt=cfg["alt_slovnik"],
+        if len(df_lang) == 0:
+            st.info(
+                f"Slovník pro jazyk **{cfg['nazev']}** je zatím prázdný.",
+                icon=":material/info:",
             )
+        else:
+            st.caption(f"Zobrazeno **{len(df_filtered)}** z celkem {len(df_lang)} kartiček")
+            if len(df_filtered) == 0:
+                st.info("Zadaným filtrům neodpovídá žádné slovíčko.")
+                if hledany_text and hledany_text.strip():
+                    st.markdown(
+                        f"Nenašli jste slovo **{hledany_text.strip()}**? "
+                        "Klikněte na tlačítko výše a požádejte o jeho přidání."
+                    )
+            else:
+                st.dataframe(
+                    df_filtered[cfg["sloupce_tabulka"]],
+                    hide_index=True,
+                    width="stretch",
+                    key=f"{lang}_public_slovnik_df",
+                    alt=cfg["alt_slovnik"],
+                )
 
         if st.session_state.get(f"{lang}_zadost_dialog_aktivni"):
             dialog_zadost_o_slovo(lang, df_lang)
@@ -2253,6 +2309,12 @@ def stranka_slovnik(lang: str = "latina"):
                 ]
             pocet_oznacenych = len(selected_rows)
 
+            csv_export_bytes = (
+                df_lang[cfg["sloupce_csv"]]
+                .to_csv(sep=";", index=False)
+                .encode("utf-8")
+            )
+
             # Horní panel nástrojů (Toolbar)
             with st.container(horizontal=True):
                 if st.button("Přidat slovo", icon=":material/add:", type="primary", key=f"{lang}_btn_add_open"):
@@ -2262,6 +2324,17 @@ def stranka_slovnik(lang: str = "latina"):
                 if st.button("Importovat z CSV", icon=":material/upload_file:", key=f"{lang}_btn_import_open"):
                     st.session_state[f"{lang}_import_csv_aktivni"] = True
                     st.rerun()
+
+                st.download_button(
+                    "Exportovat CSV",
+                    data=csv_export_bytes,
+                    file_name=f"slovicka_{lang}.csv",
+                    mime="text/csv",
+                    icon=":material/download:",
+                    disabled=(len(df_lang) == 0),
+                    key=f"{lang}_btn_export_csv",
+                    help="Stáhne kompletní databázi slovíček tohoto jazyka jako zálohu ve formátu CSV",
+                )
 
                 if st.button(
                     "Označit všechny vyfiltrované",
@@ -2298,7 +2371,13 @@ def stranka_slovnik(lang: str = "latina"):
             )
 
             # Tabulka s přehledem kartiček
-            if len(df_filtered) == 0:
+            if len(df_lang) == 0:
+                st.info(
+                    f"Slovník pro jazyk **{cfg['nazev']}** je zatím prázdný. "
+                    "Přidejte první slovíčko tlačítkem **Přidat slovo** nebo nahrajte soubor přes **Importovat z CSV**.",
+                    icon=":material/info:",
+                )
+            elif len(df_filtered) == 0:
                 st.info("Zadaným filtrům neodpovídá žádná kartička.")
             else:
                 df_zobrazit = df_filtered.copy()
@@ -2498,13 +2577,9 @@ def stranka_prihlaseni():
     zobraz_sidebar_admin_status()
     st.sidebar.header("Statistiky databáze")
     for lang_kod, cfg in JAZYKY.items():
-        try:
-            df_l = nacti_data(lang_kod)
-            pocet_karet = len(df_l)
-            pocet_lekci = len(set(df_l["Lekce"]) - {""})
-        except FileNotFoundError:
-            pocet_karet = 0
-            pocet_lekci = 0
+        df_l = nacti_data(lang_kod)
+        pocet_karet = len(df_l)
+        pocet_lekci = len(set(df_l["Lekce"]) - {""})
         st.sidebar.metric(f"Kartičky – {cfg['nazev']}", pocet_karet)
         st.sidebar.metric(f"Aktivní lekce – {cfg['nazev']}", pocet_lekci)
 
@@ -2547,9 +2622,9 @@ def stranka_prihlaseni():
         st.markdown(
             """
             Jako přihlášený správce máte k dispozici následující oprávnění pro oba jazyky (**Latina** i **Řečtina**):
-            - **Generátor kartiček:** Možnost publikovat vytvořené balíčky do veřejné knihovny.
-            - **Knihovna kartiček:** Možnost mazat uložené balíčky.
-            - **Slovník:** Přidávání nových slovíček, úprava existujících kartiček, CSV import a vyřizování žádostí o slova.
+- **Generátor kartiček:** Možnost publikovat vytvořené balíčky do veřejné knihovny.
+- **Knihovna kartiček:** Možnost mazat uložené balíčky.
+- **Slovník:** Přidávání nových slovíček, úprava existujících kartiček, CSV import/export a vyřizování žádostí o slova.
             """
         )
 
@@ -2560,6 +2635,7 @@ def stranka_prihlaseni():
                 st.session_state[f"{lang_kod}_admin_selected_rows"] = []
             st.toast("Byl jste odhlášen.", icon="👋")
             st.rerun()
+
 
 # ==============================================================================
 # STRÁNKA 5: NÁVOD K IMPORTU DO ANKI
@@ -2605,7 +2681,6 @@ def stranka_navod():
         icon=":material/info:",
     )
 
-    # Rychlý rozcestník ke stažení
     st.subheader("1. Kde získat aplikaci Anki?")
     col_d1, col_d2, col_d3 = st.columns(3)
     with col_d1:
@@ -2659,15 +2734,15 @@ def stranka_navod():
         st.markdown("### Postup pro zařízení s Androidem (AnkiDroid)")
         st.markdown(
             """
-            1. **Nainstalujte si AnkiDroid** z [Obchodu Google Play](https://play.google.com/store/apps/details?id=com.ichi2.anki) a aplikaci alespoň jednou spusťte.
-            2. **Stáhněte si balíček:**
-               - V této aplikaci přejděte na Generátor kartiček ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo do [Knihovny kartiček](knihovna).
-               - Vyberte si lekce nebo existující balíček a klepněte na tlačítko pro stažení balíčku (`.apkg`).
-            3. **Otevřete a naimportujte soubor:**
-               - **Způsob A (nejrychlejší):** Stáhněte lištu oznámení v telefonu a klepněte na oznámení o dokončeném stažení souboru. Telefon vám nabídne aplikaci pro otevření – vyberte **AnkiDroid**. Import proběhne okamžitě.
-               - **Způsob B (přes správce souborů):** Otevřete aplikaci *Správce souborů* (nebo *Stažené soubory / Downloads*), najděte soubor s příponou `.apkg` a klepněte na něj.
-               - **Způsob C (přímo v AnkiDroidu):** Spusťte AnkiDroid, klepněte na tři tečky v pravém horním rohu (nebo na modré tlačítko `+` vpravo dole) -> zvolte **Importovat** -> vyhledejte stažený soubor ve složce *Download*.
-            4. **Hotovo!** Na hlavní obrazovce AnkiDroidu uvidíte nový balíček kartiček připravený k procvičování.
+1. **Nainstalujte si AnkiDroid** z [Obchodu Google Play](https://play.google.com/store/apps/details?id=com.ichi2.anki) a aplikaci alespoň jednou spusťte.
+2. **Stáhněte si balíček:**
+  - V této aplikaci přejděte na Generátor kartiček ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo do [Knihovny kartiček](knihovna).
+  - Vyberte si lekce nebo existující balíček a klepněte na tlačítko pro stažení balíčku (`.apkg`).
+3. **Otevřete a naimportujte soubor:**
+  - **Způsob A (nejrychlejší):** Stáhněte lištu oznámení v telefonu a klepněte na oznámení o dokončeném stažení souboru. Telefon vám nabídne aplikaci pro otevření – vyberte **AnkiDroid**. Import proběhne okamžitě.
+  - **Způsob B (přes správce souborů):** Otevřete aplikaci *Správce souborů* (nebo *Stažené soubory / Downloads*), najděte soubor s příponou `.apkg` a klepněte na něj.
+  - **Způsob C (přímo v AnkiDroidu):** Spusťte AnkiDroid, klepněte na tři tečky v pravém horním rohu (nebo na modré tlačítko `+` vpravo dole) -> zvolte **Importovat** -> vyhledejte stažený soubor ve složce *Download*.
+4. **Hotovo!** Na hlavní obrazovce AnkiDroidu uvidíte nový balíček kartiček připravený k procvičování.
             """
         )
         st.link_button(
@@ -2684,17 +2759,17 @@ def stranka_navod():
             Na zařízeních Apple máte dvě skvělé možnosti:
 
             #### Možnost 1: Oficiální aplikace AnkiMobile (App Store)
-            1. Nainstalujte si aplikaci **AnkiMobile Flashcards** z [App Store](https://apps.apple.com/app/ankimobile-flashcards/id373493387).
-            2. V prohlížeči Safari na iPhonu si stáhněte balíček `.apkg` z Generátoru ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo [Knihovny](knihovna).
-            3. V Safari klepněte v adresním řádku na ikonu stahování (modrý kroužek se šipkou dolů) a klepněte na stažený soubor `.apkg`.
-            4. Klepněte na ikonu **Sdílení** (čtvereček se šipkou nahoru) a v řádku aplikací zvolte **Anki** (případně *Otevřít v aplikaci AnkiMobile*).
-            5. Balíček se automaticky přidá do vaší sbírky.
+1. Nainstalujte si aplikaci **AnkiMobile Flashcards** z [App Store](https://apps.apple.com/app/ankimobile-flashcards/id373493387).
+2. V prohlížeči Safari na iPhonu si stáhněte balíček `.apkg` z Generátoru ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo [Knihovny](knihovna).
+3. V Safari klepněte v adresním řádku na ikonu stahování (modrý kroužek se šipkou dolů) a klepněte na stažený soubor `.apkg`.
+4. Klepněte na ikonu **Sdílení** (čtvereček se šipkou nahoru) a v řádku aplikací zvolte **Anki** (případně *Otevřít v aplikaci AnkiMobile*).
+5. Balíček se automaticky přidá do vaší sbírky.
 
             #### Možnost 2: Bezplatné využití přes AnkiWeb (prohlížeč)
             Pokud nechcete kupovat placenou aplikaci pro iOS:
-            1. Vytvořte si bezplatný účet na [AnkiWeb.net](https://ankiweb.net/).
-            2. Na svém počítači (kde je Anki zdarma) importujte stažený `.apkg` balíček a stiskněte tlačítko **Synchronizovat**.
-            3. Na iPhonu otevřete Safari, přihlaste se na [AnkiWeb.net](https://ankiweb.net/) a můžete se kartičky pohodlně učit přímo v prohlížeči s plnou synchronizací postupu.
+1. Vytvořte si bezplatný účet na [AnkiWeb.net](https://ankiweb.net/).
+2. Na svém počítači (kde je Anki zdarma) importujte stažený `.apkg` balíček a stiskněte tlačítko **Synchronizovat**.
+3. Na iPhonu otevřete Safari, přihlaste se na [AnkiWeb.net](https://ankiweb.net/) a můžete se kartičky pohodlně učit přímo v prohlížeči s plnou synchronizací postupu.
             """
         )
         col_ios1, col_ios2 = st.columns(2)
@@ -2721,15 +2796,15 @@ def stranka_navod():
             """
             Počítačová verze Anki je nejvýkonnější a nabízí nejpohodlnější správu kartiček.
 
-            1. **Stáhněte a nainstalujte Anki:**
-               - Přejděte na oficiální web [apps.ankiweb.net](https://apps.ankiweb.net/) a stáhněte si verzi pro svůj systém (Windows, macOS nebo Linux).
-               - Dokončete standardní instalaci.
-            2. **Stáhněte balíček:**
-               - Zde v Generátoru kartiček ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo [Knihovně kartiček](knihovna) klikněte na stažení vybraného balíčku.
-            3. **Importujte do Anki:**
-               - **Způsob A (nejjednodušší):** Dvakrát klikněte na stažený soubor `.apkg` ve složce *Stažené soubory*. Program Anki se sám otevře a zobrazí zprávu: *Import dokončen*.
-               - **Způsob B (z menu programu):** Spusťte Anki -> v horní liště zvolte **Soubor (File)** -> **Importovat... (Import...)** (nebo klávesová zkratka `Ctrl + I` na Windows či `Cmd + I` na Macu) -> vyberte soubor `.apkg`.
-            4. **Hotovo!** Balíček se zařadí mezi vaše balíčky a můžete ihned kliknout na *Studovat*.
+1. **Stáhněte a nainstalujte Anki:**
+  - Přejděte na oficiální web [apps.ankiweb.net](https://apps.ankiweb.net/) a stáhněte si verzi pro svůj systém (Windows, macOS nebo Linux).
+  - Dokončete standardní instalaci.
+2. **Stáhněte balíček:**
+  - Zde v Generátoru kartiček ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo [Knihovně kartiček](knihovna) klikněte na stažení vybraného balíčku.
+3. **Importujte do Anki:**
+  - **Způsob A (nejjednodušší):** Dvakrát klikněte na stažený soubor `.apkg` ve složce *Stažené soubory*. Program Anki se sám otevře a zobrazí zprávu: *Import dokončen*.
+  - **Způsob B (z menu programu):** Spusťte Anki -> v horní liště zvolte **Soubor (File)** -> **Importovat... (Import...)** (nebo klávesová zkratka `Ctrl + I` na Windows či `Cmd + I` na Macu) -> vyberte soubor `.apkg`.
+4. **Hotovo!** Balíček se zařadí mezi vaše balíčky a můžete ihned kliknout na *Studovat*.
             """
         )
         st.link_button(
@@ -2745,14 +2820,14 @@ def stranka_navod():
             """
             Díky bezplatné službě **AnkiWeb** se nemusíte starat o přenášení souborů – jednou naimportujete balíček na počítači a automaticky ho máte i v mobilu.
 
-            1. **Registrace:** Založte si bezplatný účet na [ankiweb.net/account/register](https://ankiweb.net/account/register).
-            2. **Přihlášení v Anki na počítači:**
-               - Klikněte na tlačítko **Synchronizovat** (ikona dvou šipek v kruhu v horní liště).
-               - Zadejte svůj e-mail a heslo z AnkiWebu.
-            3. **Přihlášení v telefonu (AnkiDroid / AnkiMobile):**
-               - V nastavení aplikace otevřete sekci *AnkiWeb účet* a zadejte stejné přihlašovací údaje.
-               - Klepněte na ikonu synchronizace.
-            4. **Výsledek:** Všechny kartičky, vaše naplánovaná opakování i statistiky se odteď automaticky synchronizují na všech vašich zařízeních.
+1. **Registrace:** Založte si bezplatný účet na [ankiweb.net/account/register](https://ankiweb.net/account/register).
+2. **Přihlášení v Anki na počítači:**
+  - Klikněte na tlačítko **Synchronizovat** (ikona dvou šipek v kruhu v horní liště).
+  - Zadejte svůj e-mail a heslo z AnkiWebu.
+3. **Přihlášení v telefonu (AnkiDroid / AnkiMobile):**
+  - V nastavení aplikace otevřete sekci *AnkiWeb účet* a zadejte stejné přihlašovací údaje.
+  - Klepněte na ikonu synchronizace.
+4. **Výsledek:** Všechny kartičky, vaše naplánovaná opakování i statistiky se odteď automaticky synchronizují na všech vašich zařízeních.
             """
         )
         st.link_button(
@@ -2762,8 +2837,9 @@ def stranka_navod():
             type="secondary",
         )
 
+
 # ==============================================================================
-# Stránka o projektu
+# STRÁNKA 6: O PROJEKTU
 # ==============================================================================
 def stranka_o_projektu():
     st.title("ℹ️ O projektu")
@@ -2795,7 +2871,7 @@ def stranka_o_projektu():
     Tento nástroj vznikl pro usnadnění studia latiny a tvorbu studijních kartiček (např. pro **AnkiWeb / AnkiMobile / AnkiDroid**). 
     Slovíčka a jejich zpracování vycházejí z učebnice **Základy latinského jazyka pro posluchače teologie** od **Milana Šlesingera**.
 
-    * 📖 **Učebnice ke stažení:** Pokud učebnici nemáte po ruce v tištěné podobě, její PDF verzi si můžete stáhnout například [zde v knihovně Libri Nostri](https://librinostri.catholica.cz/download/ZaklLatJPrPoThSl-OCRpcb.pdf).
+- 📖 **Učebnice ke stažení:** Pokud učebnici nemáte po ruce v tištěné podobě, její PDF verzi si můžete stáhnout například [zde v knihovně Libri Nostri](https://librinostri.catholica.cz/download/ZaklLatJPrPoThSl-OCRpcb.pdf).
 
     ---
 
@@ -2811,8 +2887,8 @@ def stranka_o_projektu():
         ### 💻 Open Source a podpora projektu
         Tuto aplikaci programuji, spravuji a hostuji ve svém volném čase a **na vlastní náklady**. 
         
-        * **Projekt byl, je a vždy bude zcela zdarma pro všechny návštěvníky.**
-        * Zdrojový kód je veřejně dostupný jako **open source** dostupný na [Githubu](https://github.com/JedlaTypek/latin-flashcard-gen/).
+- **Projekt byl, je a vždy bude zcela zdarma pro všechny návštěvníky.**
+- Zdrojový kód je veřejně dostupný jako **open source** dostupný na [Githubu](https://github.com/JedlaTypek/latin-flashcard-gen/).
 
         Pokud vám aplikace šetří čas při přípravě na zkoušky nebo při studiu jazyků a chcete podpořit její další vývoj a provoz serveru, můžete dobrovolně přispět libovolnou částkou přes platební QR kód. 
         
@@ -2824,7 +2900,7 @@ def stranka_o_projektu():
             st.image(str(qr_path), caption="QR platba (CZK)", width="stretch")
         else:
             st.info("QR kód pro platbu momentálně není k dispozici.")
-    
+
 
 # ==============================================================================
 # HORNÍ MENU BAR (NAVIGACE)
