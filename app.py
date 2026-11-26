@@ -3292,15 +3292,15 @@ def stranka_o_projektu():
 
     st.markdown("""
     ### 📚 K čemu aplikace slouží?
-    Tento nástroj vznikl pro usnadnění studia latiny a tvorbu studijních kartiček (např. pro **AnkiWeb / AnkiMobile / AnkiDroid**). 
-    Slovíčka a jejich zpracování vycházejí z učebnice **Základy latinského jazyka pro posluchače teologie** od **Milana Šlesingera**.
+    Tento nástroj vznikl pro usnadnění studia latiny a řečtiny tvorbou studijních kartiček (např. pro **AnkiWeb / AnkiMobile / AnkiDroid**). 
+    Slovíčka a jejich zpracování vycházejí z učebnice **Základy latinského jazyka pro posluchače teologie** od **Milana Šlesingera** a **Uvedení do novozákonní řečtiny** od **Josefa Bartoně**.
 
-- 📖 **Učebnice ke stažení:** Pokud učebnici nemáte po ruce v tištěné podobě, její PDF verzi si můžete stáhnout například [zde v knihovně Libri Nostri](https://librinostri.catholica.cz/download/ZaklLatJPrPoThSl-OCRpcb.pdf).
+- 📖 **Učebnice ke stažení:** Pokud učebnici nemáte po ruce v tištěné podobě, její PDF verzi si můžete stáhnout například [zde v knihovně Libri Nostri](https://librinostri.catholica.cz/download/ZaklLatJPrPoThSl-OCRpcb.pdf). Učebnice **Uvedení do novozákonní řečtiny** od **Josefa Bartoně** bohužel není veřejně dostupná v elektronické podobě.
 
     ---
 
     ### 🚀 Plány do budoucna
-    Projekt se dále vyvíjí. V plánu je přidat do slovníčku všechny lekce z již zmíněné učebnice latiny a rozšířit funkčnost této aplikace také o podporu pro učebnici **Uvedení do novozákonní řečtiny** od **Josefa Bartoně**, aby sloužila jako komplexní pomůcka pro studium obou biblických/klasických jazyků.
+    Doplnit všechny lekce obou učebnic, případně cvičení určené na naučení vzorů deklinací a konjugací.
     """)
 
     st.divider()
