@@ -1,18 +1,25 @@
-import io
 import os
-import csv
-import unicodedata
-import random
 import hmac
 import json
 import time
 import uuid
 from datetime import datetime
 import pandas as pd
-import genanki
 import streamlit as st
-import streamlit.components.v1 as components
 from druhy import analyzuj_slovicko, urci_deklinaci_adjektiva
+from jazyky import (
+    DATA_DIR,
+    JAZYKY,
+    aplikuj_filtry,
+    get_csv_path,
+    get_importy_dir,
+    get_zadosti_path,
+    get_zalohy_dir,
+    klic_serazeni_lekci,
+    odstran_diakritiku,
+    parsuj_import_csv,
+    vytvor_anki_balicek,
+)
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -53,75 +60,66 @@ def over_heslo(zadane: str, spravne: str) -> bool:
         return False
     return hmac.compare_digest(zadane.strip(), spravne.strip())
 
-def klic_serazeni_lekci(hodnota: str):
-    """Přirozené řazení lekcí (čísla číselně, ostatní abecedně)."""
-    return (int(hodnota) if hodnota.isdigit() else 9999, hodnota)
-
-def odstran_diakritiku(text: str) -> str:
-    """Odstraní diakritiku včetně háčků, čárek a makrónů (např. ā -> a, č -> c, ě -> e)."""
-    if not text:
-        return ""
-    decomposed = unicodedata.normalize("NFD", str(text))
-    filtered = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
-    return unicodedata.normalize("NFC", filtered)
-
 def aktivuj_ctrl_f_pro_sidebar(label_vyhledavani: str):
     """
     Zachytí Ctrl+F / Cmd+F v nadřazeném okně prohlížeče,
     otevře sidebar (pokud je sbalený) a zaostří konkrétní text_input.
     """
-    components.html(
+    st.html(
         f"""
         <script>
-        const doc = window.parent.document;
+        (function() {{
+            const win = window.parent || window;
+            const doc = win.document;
 
-        // Odstraníme případný starý listener při re-runu Streamlitu, aby se nehromadily
-        if (doc._ctrlFHandler) {{
-            doc.removeEventListener('keydown', doc._ctrlFHandler);
-        }}
-
-        doc._ctrlFHandler = function(e) {{
-            // Zachytí Ctrl+F (Windows/Linux) nebo Cmd+F (Mac)
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {{
-                e.preventDefault();
-                e.stopPropagation();
-
-                // 1. Pokud je boční panel na menší obrazovce sbalený, zkusíme ho otevřít
-                const expandBtn = doc.querySelector('[data-testid="stExpandSidebarButton"]') 
-                               || doc.querySelector('[data-testid="collapsedControl"] button');
-                if (expandBtn) {{
-                    expandBtn.click();
-                }}
-
-                // 2. Najdeme input uvnitř stSidebar podle popisku (aria-label)
-                setTimeout(() => {{
-                    const sidebar = doc.querySelector('[data-testid="stSidebar"]');
-                    if (!sidebar) return;
-
-                    let searchInput = sidebar.querySelector('input[aria-label="{label_vyhledavani}"]');
-                    
-                    // Záložní varianta: pokud by se label neshodoval, vezme první textový input v sidebaru
-                    if (!searchInput) {{
-                        searchInput = sidebar.querySelector('input[type="text"]');
-                    }}
-
-                    if (searchInput) {{
-                        searchInput.focus();
-                        searchInput.select(); // Rovnou označí případný předchozí hledaný text
-                    }}
-                }}, 50);
+            if (doc._ctrlFHandler) {{
+                doc.removeEventListener('keydown', doc._ctrlFHandler, true);
             }}
-        }};
 
-        doc.addEventListener('keydown', doc._ctrlFHandler, true);
+            doc._ctrlFHandler = function(e) {{
+                if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === 'f') {{
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const expandBtn = doc.querySelector('[data-testid="stExpandSidebarButton"] button')
+                                   || doc.querySelector('[data-testid="stExpandSidebarButton"]')
+                                   || doc.querySelector('[data-testid="collapsedControl"] button');
+                    if (expandBtn) {{
+                        expandBtn.click();
+                    }}
+
+                    const tryFocus = () => {{
+                        const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+                        if (!sidebar) return false;
+
+                        let searchInput = sidebar.querySelector('input[aria-label="{label_vyhledavani}"]');
+                        if (!searchInput) {{
+                            searchInput = sidebar.querySelector('input[type="text"]');
+                        }}
+                        if (searchInput) {{
+                            searchInput.focus();
+                            searchInput.select();
+                            return true;
+                        }}
+                        return false;
+                    }};
+
+                    if (!tryFocus()) {{
+                        win.setTimeout(tryFocus, 50);
+                        win.setTimeout(tryFocus, 150);
+                    }}
+                }}
+            }};
+
+            doc.addEventListener('keydown', doc._ctrlFHandler, true);
+        }})();
         </script>
         """,
-        height=0,
-        width=0,
+        unsafe_allow_javascript=True,
     )
 
 # --- NASTAVENÍ STRÁNKY A SESSION STATE ---
-st.set_page_config(page_title="Generátor karet do AnkiDroidu", page_icon="📚", layout="wide")
+st.set_page_config(page_title="Generátor karet do Anki", page_icon="📚", layout="wide")
 
 # CSS a JS úprava:
 # - ikona bočního panelu: hamburger / dvojitá šipka
@@ -173,10 +171,19 @@ st.html(
             const _origTest = W.RegExp.prototype.test;
 
             // Kontrola alfanumerického znaku bez RegExp (vyhnout se rekurzi)
+            // Zahrnuje ASCII, latinku s diakritikou (českou i makróny) a řeckou abecedu včetně polytonické
             const _hasAlpha = function(src) {
                 for (let i = 0; i < src.length; i++) {
                     const c = src.charCodeAt(i);
-                    if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122)) return true;
+                    if (
+                        (c >= 65 && c <= 90) ||
+                        (c >= 97 && c <= 122) ||
+                        (c >= 0x00C0 && c <= 0x024F) ||
+                        (c >= 0x0370 && c <= 0x03FF) ||
+                        (c >= 0x1F00 && c <= 0x1FFF)
+                    ) {
+                        return true;
+                    }
                 }
                 return false;
             };
@@ -287,6 +294,23 @@ st.html(
 
         // ── INJECT TOGGLES DO GDG SEARCH BARU A TOOLBARU ────────────────────────
         function attachTableDiacriticsToggles() {
+            // Synchronizuj výchozí stav ze sidebar přepínače při přechodu na jinou stránku/jazyk
+            const sidebarToggles = D.querySelectorAll(
+                '[data-testid="stSidebar"] [data-testid="stCheckbox"] input,' +
+                '[data-testid="stSidebar"] [data-testid="stToggle"] input'
+            );
+            sidebarToggles.forEach(stToggle => {
+                const par = stToggle.closest('[data-testid="stCheckbox"],[data-testid="stToggle"]');
+                if (par && par.textContent.toLowerCase().includes('diakritik')) {
+                    if (W.__lastSidebarDiacriticsEl !== stToggle) {
+                        W.__lastSidebarDiacriticsEl = stToggle;
+                        W.__diacriticsSensitive = !!stToggle.checked;
+                        D.querySelectorAll('.gdg-diacritics-checkbox').forEach(cb => { cb.checked = W.__diacriticsSensitive; });
+                        D.querySelectorAll('.st-diacritics-btn').forEach(btn => btn.classList.toggle('active', W.__diacriticsSensitive));
+                    }
+                }
+            });
+
             // A) Přepínač uvnitř otevřeného search baru tabulky
             D.querySelectorAll('.gdg-search-bar-inner').forEach(bar => {
                 if (bar.querySelector('.gdg-diacritics-toggle-container')) return;
@@ -343,14 +367,147 @@ st.html(
                 tb.insertBefore(btnDiv, tb.firstChild);
             });
         }
+// ── ROZLOŽENÍ HORNÍHO MENU: JAZYKY VLEVO, OSTATNÍ POLOŽKY VPRAVO ──────────
+        function organizeTopNav() {
+            const header = D.querySelector('header[data-testid="stHeader"]');
+            if (!header) return;
+
+            if (!D.getElementById('__custom-topnav-styles')) {
+                const navStyle = D.createElement('style');
+                navStyle.id = '__custom-topnav-styles';
+                navStyle.textContent = `
+                    .custom-topnav-stretch {
+                        display: flex !important;
+                        align-items: center !important;
+                        flex: 1 1 auto !important;
+                        min-width: 0 !important;
+                    }
+                    .custom-topnav-lca {
+                        display: flex !important;
+                        align-items: center !important;
+                        width: 100% !important;
+                        flex: 1 1 auto !important;
+                        min-width: 0 !important;
+                    }
+                    .custom-topnav-right-start {
+                        margin-left: auto !important;
+                    }
+                `;
+                D.head.appendChild(navStyle);
+            }
+
+            const getCleanText = (el) => {
+                const clone = el.cloneNode(true);
+                clone.querySelectorAll('[data-testid="stIconMaterial"], svg, [aria-hidden="true"]').forEach(n => n.remove());
+                return clone.textContent.replace(/\s+/g, ' ').trim();
+            };
+
+            const orderByText = {
+                'Latina': 1,
+                'Řečtina': 2,
+                'Knihovna kartiček': 3,
+                'Jak používat kartičky': 4,
+                'O projektu': 5,
+                'Přihlásit se': 6,
+                'Odhlásit se': 6,
+            };
+
+            const orderByHref = {
+                '/knihovna': 3,
+                '/navod': 4,
+                '/o-projektu': 5,
+                '/prihlaseni': 6,
+            };
+
+            const foundItems = [];
+            header.querySelectorAll('a, button, [role="button"]').forEach(el => {
+                const txt = getCleanText(el);
+                let ord = orderByText[txt];
+                if (!ord && el.tagName === 'A') {
+                    const href = el.getAttribute('href') || '';
+                    for (const [suffix, val] of Object.entries(orderByHref)) {
+                        if (href.endsWith(suffix)) {
+                            ord = val;
+                            break;
+                        }
+                    }
+                }
+                if (ord) {
+                    foundItems.push({ el, ord });
+                }
+            });
+
+            if (foundItems.length < 2) return;
+
+            // Najdeme nejbližšího společného rodiče (LCA) všech položek menu
+            let lca = foundItems[0].el.parentElement;
+            while (lca && lca !== header) {
+                if (foundItems.every(item => lca.contains(item.el))) {
+                    break;
+                }
+                lca = lca.parentElement;
+            }
+            if (!lca || lca === header) return;
+
+            // Roztáhneme LCA i jeho obalové prvky v hlavičce na celou dostupnou šířku
+            lca.classList.add('custom-topnav-lca');
+            let anc = lca.parentElement;
+            while (anc && anc !== header) {
+                const tid = anc.getAttribute('data-testid');
+                if (tid !== 'stToolbar') {
+                    anc.classList.add('custom-topnav-stretch');
+                }
+                anc = anc.parentElement;
+            }
+
+            // Namapujeme položky na přímé potomky LCA
+            const childOrders = new Map();
+            for (const { el, ord } of foundItems) {
+                let directChild = el;
+                while (directChild.parentElement && directChild.parentElement !== lca) {
+                    directChild = directChild.parentElement;
+                }
+                if (directChild.parentElement === lca) {
+                    const prev = childOrders.get(directChild);
+                    if (!prev || ord < prev) {
+                        childOrders.set(directChild, ord);
+                    }
+                }
+            }
+
+            Array.from(lca.children).forEach(child => {
+                const tid = child.getAttribute('data-testid');
+                const ord = childOrders.get(child);
+                child.classList.remove('custom-topnav-right-start');
+
+                if (ord) {
+                    child.style.setProperty('order', String(ord), 'important');
+                    if (ord === 3) {
+                        child.classList.add('custom-topnav-right-start');
+                    }
+                } else if (tid === 'stExpandSidebarButton' || tid === 'collapsedControl') {
+                    child.style.setProperty('order', '0', 'important');
+                } else {
+                    child.style.setProperty('order', '99', 'important');
+                }
+            });
+        }
+        W.__organizeTopNav = organizeTopNav;
 
         // ── MUTATION OBSERVER NA PARENT DOCUMENT ─────────────────────────────────
-        if (!W.__diacriticsObserverInstalled) {
-            W.__diacriticsObserverInstalled = true;
-            const observer = new W.MutationObserver(() => attachTableDiacriticsToggles());
-            observer.observe(D.body, { childList: true, subtree: true });
-            attachTableDiacriticsToggles();
+        if (W.__diacriticsObserver) {
+            W.__diacriticsObserver.disconnect();
         }
+        W.__diacriticsObserver = new W.MutationObserver(() => {
+            attachTableDiacriticsToggles();
+            if (W.__organizeTopNav) W.__organizeTopNav();
+        });
+        W.__diacriticsObserver.observe(D.body, { childList: true, subtree: true });
+
+        attachTableDiacriticsToggles();
+        organizeTopNav();
+        W.setTimeout(organizeTopNav, 100);
+        W.setTimeout(organizeTopNav, 400);
 
         // ── SYNCHRONIZACE ZE STREAMLIT SIDEBAR PŘEPÍNAČE ─────────────────────────
         if (!W.__diacriticsSidebarListenerInstalled) {
@@ -393,7 +550,7 @@ st.html(
                         const sidebar = D.querySelector('[data-testid="stSidebar"]');
                         if (!sidebar) return false;
                         const input = sidebar.querySelector(
-                            'input[placeholder*="Latina"], input[aria-label*="Hledat"], [data-testid="stTextInput"] input'
+                            'input[placeholder*="Latina"], input[placeholder*="Řečtina"], input[aria-label*="Hledat"], [data-testid="stTextInput"] input'
                         );
                         if (input) {
                             input.focus();
@@ -418,127 +575,91 @@ st.html(
     unsafe_allow_javascript=True
 )
 
-if "nazev_balicku" not in st.session_state:
-    st.session_state.nazev_balicku = "Latina - Můj výběr"
-
 if "admin_prihlasen" not in st.session_state:
     st.session_state.admin_prihlasen = False
 
-DATA_DIR = os.environ.get("DATA_DIR", "data")
-if os.path.exists(os.path.join(DATA_DIR, "slovicka_komplet.csv")):
-    CSV_SOUBOR = os.path.join(DATA_DIR, "slovicka_komplet.csv")
-elif os.path.exists("slovicka_komplet.csv"):
-    CSV_SOUBOR = "slovicka_komplet.csv"
-else:
-    CSV_SOUBOR = os.path.join(DATA_DIR, "slovicka_komplet.csv")
-
 # --- NAČTENÍ A UKLÁDÁNÍ DAT ---
 @st.cache_data
-def nacti_data() -> pd.DataFrame:
-    df = pd.read_csv(CSV_SOUBOR, sep=";", dtype=str)
-    df.fillna("", inplace=True)
-    if "Konjugace" not in df.columns:
-        df["Konjugace"] = ""
-    if "Deklinace" not in df.columns:
-        df["Deklinace"] = ""
+def nacti_data(lang: str = "latina") -> pd.DataFrame:
+    cfg = JAZYKY[lang]
+    csv_soubor = get_csv_path(lang)
+    col_cizi = cfg["sloupec"]
 
-    # Doplnění deklinace pro přídavná jména, pokud v datech chybí
-    mask_adj_bez_dekl = (df["Slovní druh"] == "Přídavné jméno") & (df["Deklinace"].str.strip() == "")
-    if mask_adj_bez_dekl.any():
-        for idx in df[mask_adj_bez_dekl].index:
-            clean_parts = [p.strip().lower() for p in str(df.loc[idx, "Latina"]).split(",")]
-            df.loc[idx, "Deklinace"] = urci_deklinaci_adjektiva(clean_parts)
+    df_lang = pd.read_csv(csv_soubor, sep=";", dtype=str)
+    df_lang.fillna("", inplace=True)
 
-    konj = df["Konjugace"].astype(str).str.strip()
-    dekl = df["Deklinace"].astype(str).str.strip()
-    df["konj./dekl."] = konj.where(konj != "", dekl)
-    df["_Latina_norm"] = df["Latina"].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
-    df["_Cestina_norm"] = df["Čeština"].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
-    return df
+    for col in ["Lekce", col_cizi, "Čeština", "Slovní druh"]:
+        if col not in df_lang.columns:
+            df_lang[col] = ""
 
-def uloz_data(novy_df: pd.DataFrame) -> bool:
-    """Uloží DataFrame do CSV a zneplatní cache, aby se změny ihned projevily."""
+    if cfg["ma_gramatiku"]:
+        if "Konjugace" not in df_lang.columns:
+            df_lang["Konjugace"] = ""
+        if "Deklinace" not in df_lang.columns:
+            df_lang["Deklinace"] = ""
+
+        # Doplnění deklinace pro přídavná jména, pokud v datech chybí
+        mask_adj_bez_dekl = (df_lang["Slovní druh"] == "Přídavné jméno") & (
+            df_lang["Deklinace"].str.strip() == ""
+        )
+        if mask_adj_bez_dekl.any():
+            for idx in df_lang[mask_adj_bez_dekl].index:
+                clean_parts = [p.strip().lower() for p in str(df_lang.loc[idx, col_cizi]).split(",")]
+                df_lang.loc[idx, "Deklinace"] = urci_deklinaci_adjektiva(clean_parts)
+
+        konj = df_lang["Konjugace"].astype(str).str.strip()
+        dekl = df_lang["Deklinace"].astype(str).str.strip()
+        df_lang["konj./dekl."] = konj.where(konj != "", dekl)
+    else:
+        if "Rod" not in df_lang.columns:
+            df_lang["Rod"] = ""
+
+    df_lang["_Cizi_norm"] = df_lang[col_cizi].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
+    df_lang["_Cestina_norm"] = df_lang["Čeština"].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
+    return df_lang
+
+
+def ziskej_data_jazyka(lang: str) -> pd.DataFrame | None:
+    """Bezpečně načte data pro daný jazyk a při chybějícím souboru zobrazí chybu."""
     try:
-        adresar = os.path.dirname(CSV_SOUBOR)
+        return nacti_data(lang)
+    except FileNotFoundError:
+        csv_soubor = get_csv_path(lang)
+        cfg = JAZYKY[lang]
+        st.error(
+            f"Chyba: Soubor '{csv_soubor}' pro jazyk {cfg['nazev']} nebyl nalezen. "
+            f"Ujisti se, že je umístěn ve složce '{cfg['adresar']}/'."
+        )
+        return None
+
+
+def uloz_data(novy_df: pd.DataFrame, lang: str = "latina") -> bool:
+    """Uloží DataFrame do CSV daného jazyka a zneplatní cache."""
+    cfg = JAZYKY[lang]
+    csv_soubor = get_csv_path(lang)
+    try:
+        adresar = os.path.dirname(csv_soubor)
         if adresar:
             os.makedirs(adresar, exist_ok=True)
-        sloupce = ["Lekce", "Latina", "Čeština", "Slovní druh", "Konjugace", "Deklinace"]
+        sloupce = cfg["sloupce_csv"]
         df_k_zapisu = novy_df.copy()
         for col in sloupce:
             if col not in df_k_zapisu.columns:
                 df_k_zapisu[col] = ""
-        df_k_zapisu[sloupce].to_csv(CSV_SOUBOR, sep=";", index=False, encoding="utf-8")
+        df_k_zapisu[sloupce].to_csv(csv_soubor, sep=";", index=False, encoding="utf-8")
         st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"Chyba při ukládání do souboru '{CSV_SOUBOR}': {e}")
+        st.error(f"Chyba při ukládání do souboru '{csv_soubor}': {e}")
         return False
 
-try:
-    df = nacti_data()
-except FileNotFoundError:
-    st.error(f"Chyba: Soubor '{CSV_SOUBOR}' nebyl nalezen. Ujisti se, že je umístěn ve složce 'data/'.")
-    st.stop()
-
-# --- FUNKCE PRO GENEROVÁNÍ ANKI BALÍČKU ---
-def vytvor_anki_balicek(data, nazev_balicku, smer_lat_ces, smer_ces_lat):
-    model_id = 1607392319 
-    
-    sablony = []
-    if smer_lat_ces:
-        sablony.append({
-            'name': 'Latina ➔ Čeština',
-            'qfmt': '<div style="font-family: Arial; font-size: 26px; text-align: center; margin-top: 50px;">{{Latina}}</div>',
-            'afmt': '{{FrontSide}}<hr id="answer"><div style="font-family: Arial; font-size: 22px; text-align: center;">{{Čeština}}</div>',
-        })
-    if smer_ces_lat:
-        sablony.append({
-            'name': 'Čeština ➔ Latina',
-            'qfmt': '<div style="font-family: Arial; font-size: 26px; text-align: center; margin-top: 50px;">{{Čeština}}</div>',
-            'afmt': '{{FrontSide}}<hr id="answer"><div style="font-family: Arial; font-size: 22px; text-align: center;">{{Latina}}</div>',
-        })
-
-    model = genanki.Model(
-        model_id,
-        'Základní Latina (Dvousměrná)',
-        fields=[
-            {'name': 'Latina'},
-            {'name': 'Čeština'},
-        ],
-        templates=sablony
-    )
-
-    deck_id = random.randrange(1 << 30, 1 << 31)
-    deck = genanki.Deck(deck_id, nazev_balicku)
-
-    for _, row in data.iterrows():
-        latina = str(row['Latina']).strip()
-        cestina = str(row['Čeština']).strip()
-        
-        if not latina or not cestina:
-            continue
-            
-        note = genanki.Note(
-            model=model,
-            fields=[latina, cestina]
-        )
-        deck.add_note(note)
-
-    package = genanki.Package(deck)
-    buffer = io.BytesIO()
-    package.write_to_file(buffer)
-    buffer.seek(0)
-    return buffer
 
 # ==============================================================================
 # SPRÁVA KNIHOVNY BALÍČKŮ A ADMIN STATUS
 # ==============================================================================
 KNIHOVNA_JSON_PATH = os.path.join(DATA_DIR, "knihovna_balicku.json")
 BALICKY_DIR = os.path.join(DATA_DIR, "balicky")
-IMPORTY_DIR = os.path.join(DATA_DIR, "importy")
-ZALOHY_DIR = os.path.join(DATA_DIR, "zalohy")
-os.makedirs(IMPORTY_DIR, exist_ok=True)
-os.makedirs(ZALOHY_DIR, exist_ok=True)
+
 
 def nacti_knihovnu() -> list:
     """Načte seznam balíčků z knihovna_balicku.json."""
@@ -551,6 +672,7 @@ def nacti_knihovnu() -> list:
     except Exception:
         return []
 
+
 def uloz_knihovnu(knihovna: list) -> bool:
     """Uloží seznam balíčků do knihovna_balicku.json."""
     try:
@@ -562,6 +684,7 @@ def uloz_knihovnu(knihovna: list) -> bool:
         st.error(f"Chyba při ukládání knihovny: {e}")
         return False
 
+
 def smaz_balicek_z_knihovny(balicek_id: str) -> bool:
     """Odstraní balíček z knihovny včetně .apkg souboru na disku."""
     knihovna = nacti_knihovnu()
@@ -572,74 +695,92 @@ def smaz_balicek_z_knihovny(balicek_id: str) -> bool:
             soubor_ke_smazani = b.get("soubor")
         else:
             novy_seznam.append(b)
-    
+
     if soubor_ke_smazani and os.path.exists(soubor_ke_smazani):
         try:
             os.remove(soubor_ke_smazani)
         except Exception:
             pass
-            
+
     return uloz_knihovnu(novy_seznam)
 
-# ==============================================================================
-# SPRÁVA ŽÁDOSTÍ O PŘIDÁNÍ SLOVA
-# ==============================================================================
-ZADOSTI_JSON_PATH = os.path.join(DATA_DIR, "zadosti_o_slova.json")
 
-def nacti_zadosti() -> list:
-    """Načte seznam žádostí o přidání slov ze souboru JSON."""
-    if not os.path.exists(ZADOSTI_JSON_PATH):
+# ==============================================================================
+# SPRÁVA ŽÁDOSTÍ O PŘIDÁNÍ SLOVA (PRO KAŽDÝ JAZYK ZVLÁŠŤ)
+# ==============================================================================
+def nacti_zadosti(lang: str = "latina") -> list:
+    """Načte seznam žádostí o přidání slov ze souboru JSON daného jazyka."""
+    cesta = get_zadosti_path(lang)
+    if not os.path.exists(cesta):
         return []
     try:
-        with open(ZADOSTI_JSON_PATH, "r", encoding="utf-8") as f:
+        with open(cesta, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data if isinstance(data, list) else []
     except Exception:
         return []
 
-def uloz_zadosti(zadosti: list) -> bool:
-    """Uloží seznam žádostí do souboru JSON."""
+
+def uloz_zadosti(zadosti: list, lang: str = "latina") -> bool:
+    """Uloží seznam žádostí do souboru JSON daného jazyka."""
+    cesta = get_zadosti_path(lang)
     try:
-        os.makedirs(os.path.dirname(ZADOSTI_JSON_PATH), exist_ok=True)
-        with open(ZADOSTI_JSON_PATH, "w", encoding="utf-8") as f:
+        os.makedirs(os.path.dirname(cesta), exist_ok=True)
+        with open(cesta, "w", encoding="utf-8") as f:
             json.dump(zadosti, f, ensure_ascii=False, indent=2)
         return True
     except Exception as e:
         st.error(f"Chyba při ukládání žádostí: {e}")
         return False
 
-def pridej_zadost(latina: str, cestina: str, lekce: str, poznamka: str) -> bool:
-    """Přidá novou žádost o slovo."""
-    zadosti = nacti_zadosti()
+
+def pridej_zadost(cizi_slovo: str, cestina: str, lekce: str, poznamka: str, lang: str = "latina") -> bool:
+    """Přidá novou žádost o slovo pro daný jazyk."""
+    zadosti = nacti_zadosti(lang)
     nova = {
         "id": uuid.uuid4().hex[:8],
-        "latina": latina.strip(),
+        "slovo": cizi_slovo.strip(),
         "cestina": cestina.strip(),
         "lekce": lekce.strip(),
         "poznamka": poznamka.strip(),
         "stav": "cekajici",
         "datum": datetime.now().strftime("%d. %m. %Y %H:%M"),
     }
+    if lang == "latina":
+        nova["latina"] = cizi_slovo.strip()
     zadosti.insert(0, nova)
-    return uloz_zadosti(zadosti)
+    return uloz_zadosti(zadosti, lang)
 
-def zmen_stav_zadosti(zadost_id: str, novy_stav: str) -> bool:
+
+def zmen_stav_zadosti(zadost_id: str, novy_stav: str, lang: str = "latina") -> bool:
     """Změní stav žádosti (cekajici / vyrizeno / zamitnuto)."""
-    zadosti = nacti_zadosti()
+    zadosti = nacti_zadosti(lang)
     for z in zadosti:
         if z.get("id") == zadost_id:
             z["stav"] = novy_stav
             break
-    return uloz_zadosti(zadosti)
+    return uloz_zadosti(zadosti, lang)
 
-def smaz_zadost(zadost_id: str) -> bool:
-    """Smaže žádost ze seznamu."""
-    zadosti = nacti_zadosti()
+
+def smaz_zadost(zadost_id: str, lang: str = "latina") -> bool:
+    """Smaže žádost ze seznamu daného jazyka."""
+    zadosti = nacti_zadosti(lang)
     novy = [z for z in zadosti if z.get("id") != zadost_id]
-    return uloz_zadosti(novy)
+    return uloz_zadosti(novy, lang)
 
-def publikuj_balicek(nazev: str, popis: str, smer_lat_ces: bool, smer_ces_lat: bool, df_data: pd.DataFrame) -> tuple[bool, str, str]:
-    """Vygeneruje .apkg, uloží jej do data/balicky a zapíše metadata do knihovny."""
+
+def publikuj_balicek(
+    nazev: str,
+    popis: str,
+    smer_cizi_ces: bool,
+    smer_ces_cizi: bool,
+    df_data: pd.DataFrame,
+    lang: str = "latina",
+) -> tuple[bool, str, str]:
+    """Vygeneruje .apkg, uloží jej do data/balicky a zapíše metadata do sdílené knihovny."""
+    cfg = JAZYKY[lang]
+    col_cizi = cfg["sloupec"]
+
     os.makedirs(BALICKY_DIR, exist_ok=True)
     balicek_id = f"pkg_{int(time.time())}"
     bezpecny_nazev = "".join(c for c in nazev if c.isalnum() or c in (" ", "_", "-")).strip()
@@ -647,47 +788,51 @@ def publikuj_balicek(nazev: str, popis: str, smer_lat_ces: bool, smer_ces_lat: b
         bezpecny_nazev = "balicek"
     nazev_souboru = f"{bezpecny_nazev.replace(' ', '_')}_{balicek_id}.apkg"
     cesta_soubor = os.path.join(BALICKY_DIR, nazev_souboru)
-    
-    apkg_buf = vytvor_anki_balicek(df_data, nazev, smer_lat_ces, smer_ces_lat)
+
+    apkg_buf = vytvor_anki_balicek(df_data, nazev, smer_cizi_ces, smer_ces_cizi, lang=lang)
     try:
         with open(cesta_soubor, "wb") as f:
             f.write(apkg_buf.getvalue())
     except Exception as e:
         return False, f"Nepodařilo se uložit soubor balíčku: {e}", ""
-        
+
     pocet_slov = len(df_data)
-    pocet_karet = pocet_slov * (int(smer_lat_ces) + int(smer_ces_lat))
+    pocet_karet = pocet_slov * (int(smer_cizi_ces) + int(smer_ces_cizi))
     datum_str = datetime.now().strftime("%d. %m. %Y %H:%M")
-    
+
     karticky_list = []
     for _, r in df_data.iterrows():
-        karticky_list.append({
+        polozka = {
             "Lekce": str(r.get("Lekce", "")),
-            "Latina": str(r.get("Latina", "")),
+            col_cizi: str(r.get(col_cizi, "")),
             "Čeština": str(r.get("Čeština", "")),
             "Slovní druh": str(r.get("Slovní druh", "")),
-            "konj./dekl.": str(r.get("konj./dekl.", ""))
-        })
-        
+        }
+        if cfg["ma_gramatiku"]:
+            polozka["konj./dekl."] = str(r.get("konj./dekl.", ""))
+        karticky_list.append(polozka)
+
     zaznam = {
         "id": balicek_id,
+        "jazyk": lang,
         "nazev": nazev,
         "popis": popis.strip(),
         "datum": datum_str,
         "pocet_slovicek": pocet_slov,
         "pocet_karticek": pocet_karet,
-        "smer_lat_ces": smer_lat_ces,
-        "smer_ces_lat": smer_ces_lat,
+        "smer_lat_ces": smer_cizi_ces,
+        "smer_ces_lat": smer_ces_cizi,
         "soubor": cesta_soubor,
         "nazev_souboru": f"{bezpecny_nazev.replace(' ', '_')}.apkg",
-        "karticky": karticky_list
+        "karticky": karticky_list,
     }
-    
+
     knihovna = nacti_knihovnu()
     knihovna.insert(0, zaznam)
     if uloz_knihovnu(knihovna):
         return True, "Balíček byl úspěšně publikován do knihovny.", cesta_soubor
     return False, "Chyba při zápisu do databáze knihovny.", ""
+
 
 def zobraz_sidebar_admin_status():
     """Zobrazí v postranním panelu informaci o přihlášení správce, pokud je aktivní."""
@@ -695,280 +840,94 @@ def zobraz_sidebar_admin_status():
         st.sidebar.success("Přihlášen jako správce", icon=":material/verified_user:")
         if st.sidebar.button("Odhlásit se", icon=":material/logout:", key="global_sidebar_logout"):
             st.session_state.admin_prihlasen = False
-            st.session_state.admin_selected_rows = []
+            for lang_kod in JAZYKY:
+                st.session_state[f"{lang_kod}_admin_selected_rows"] = []
             st.rerun()
         st.sidebar.markdown("---")
 
-# ==============================================================================
-# FILTROVÁNÍ DAT (SDÍLENÁ LOGIKA)
-# ==============================================================================
-def aplikuj_filtry(
-    data: pd.DataFrame,
-    vybrane_lekce: list,
-    vybrane_druhy: list,
-    vybrane_konjugace: list,
-    vybrane_deklinace: list,
-    hledany_text: str = "",
-    citlive_na_diakritiku: bool = False
-) -> pd.DataFrame:
-    vsechny_lekce = set(l for l in data['Lekce'].unique() if l)
-    vsechny_konj = set(k for k in data['Konjugace'].unique() if k)
-    vsechny_dekl = set(d for d in data['Deklinace'].unique() if d)
-
-    if set(vybrane_lekce) >= vsechny_lekce:
-        df_f = data[data['Lekce'].isin(vybrane_lekce) | (data['Lekce'] == '')].copy()
-    else:
-        df_f = data[data['Lekce'].isin(vybrane_lekce)].copy()
-
-    podminky = []
-
-    for druh in vybrane_druhy:
-        if druh == 'Sloveso':
-            mask_slovesa = (df_f['Slovní druh'] == 'Sloveso')
-            if set(vybrane_konjugace) >= vsechny_konj:
-                podminky.append(mask_slovesa & (df_f['Konjugace'].isin(vybrane_konjugace) | (df_f['Konjugace'] == '')))
-            else:
-                podminky.append(mask_slovesa & df_f['Konjugace'].isin(vybrane_konjugace))
-        elif druh in ['Podstatné jméno', 'Přídavné jméno']:
-            mask_dekl = (df_f['Slovní druh'] == druh)
-            if set(vybrane_deklinace) >= vsechny_dekl:
-                podminky.append(mask_dekl & (df_f['Deklinace'].isin(vybrane_deklinace) | (df_f['Deklinace'] == '')))
-            else:
-                podminky.append(mask_dekl & df_f['Deklinace'].isin(vybrane_deklinace))
-        else:
-            podminky.append(df_f['Slovní druh'] == druh)
-
-    if podminky:
-        finalni_maska = podminky[0]
-        for m in podminky[1:]:
-            finalni_maska = finalni_maska | m
-        df_f = df_f[finalni_maska]
-    else:
-        df_f = pd.DataFrame(columns=data.columns)
-
-    if hledany_text and hledany_text.strip():
-        q_raw = hledany_text.strip()
-        if citlive_na_diakritiku:
-            q = q_raw.lower()
-            df_f = df_f[
-                df_f['Latina'].astype(str).str.lower().str.contains(q, na=False, regex=False) |
-                df_f['Čeština'].astype(str).str.lower().str.contains(q, na=False, regex=False)
-            ]
-        else:
-            q_clean = odstran_diakritiku(q_raw.lower())
-            if '_Latina_norm' in df_f.columns and '_Cestina_norm' in df_f.columns:
-                df_f = df_f[
-                    df_f['_Latina_norm'].str.contains(q_clean, na=False, regex=False) |
-                    df_f['_Cestina_norm'].str.contains(q_clean, na=False, regex=False)
-                ]
-            else:
-                lat_norm = df_f['Latina'].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
-                ces_norm = df_f['Čeština'].fillna("").apply(lambda s: odstran_diakritiku(str(s).lower()))
-                df_f = df_f[
-                    lat_norm.str.contains(q_clean, na=False, regex=False) |
-                    ces_norm.str.contains(q_clean, na=False, regex=False)
-                ]
-
-    return df_f
 
 # ==============================================================================
 # POMOCNÉ FUNKCE PRO CALLBACKY A STAVY DIALOGŮ
 # ==============================================================================
-def reset_pridat_state():
-    st.session_state.pridat_slovo_aktivni = False
-    st.session_state.pop("schvalovana_zadost_id", None)
-    for k in ["dlg_add_latina", "dlg_add_cestina", "dlg_add_nova_lekce", "dlg_add_vyber_lekce", "dlg_add_druh", "dlg_add_konj", "dlg_add_dekl", "dlg_add_msg"]:
-        st.session_state.pop(k, None)
+def reset_pridat_state(lang: str | None = None):
+    langs = [lang] if lang else list(JAZYKY.keys())
+    for l in langs:
+        st.session_state[f"{l}_pridat_slovo_aktivni"] = False
+        st.session_state.pop(f"{l}_schvalovana_zadost_id", None)
+        for k in [
+            "dlg_add_slovo",
+            "dlg_add_cestina",
+            "dlg_add_nova_lekce",
+            "dlg_add_vyber_lekce",
+            "dlg_add_druh",
+            "dlg_add_konj",
+            "dlg_add_dekl",
+            "dlg_add_msg",
+        ]:
+            st.session_state.pop(f"{l}_{k}", None)
 
-def reset_edit_state():
-    st.session_state.edit_row_idx = None
-    for k in ["dlg_edit_latina", "dlg_edit_cestina", "dlg_edit_nova_lekce", "dlg_edit_vyber_lekce", "dlg_edit_druh", "dlg_edit_konj", "dlg_edit_dekl", "dlg_edit_msg", "dlg_edit_initialized_idx"]:
-        st.session_state.pop(k, None)
 
-def reset_delete_state():
-    st.session_state.delete_row_idx = None
+def reset_edit_state(lang: str | None = None):
+    langs = [lang] if lang else list(JAZYKY.keys())
+    for l in langs:
+        st.session_state[f"{l}_edit_row_idx"] = None
+        for k in [
+            "dlg_edit_slovo",
+            "dlg_edit_cestina",
+            "dlg_edit_nova_lekce",
+            "dlg_edit_vyber_lekce",
+            "dlg_edit_druh",
+            "dlg_edit_konj",
+            "dlg_edit_dekl",
+            "dlg_edit_msg",
+            "dlg_edit_initialized_idx",
+        ]:
+            st.session_state.pop(f"{l}_{k}", None)
 
-def reset_bulk_delete_state():
-    st.session_state.bulk_delete_active = False
 
-def reset_generator_balicek_state():
-    st.session_state.generator_balicek_dialog = False
+def reset_delete_state(lang: str | None = None):
+    langs = [lang] if lang else list(JAZYKY.keys())
+    for l in langs:
+        st.session_state[f"{l}_delete_row_idx"] = None
 
-def reset_import_csv_state():
-    st.session_state.import_csv_aktivni = False
-    for k in [
-        "csv_import_data",
-        "csv_import_last_file_id",
-        "csv_import_uploader",
-        "csv_import_vychozi_lekce",
-        "csv_import_dupl_rezim",
-        "csv_import_data_editor"
-    ]:
-        st.session_state.pop(k, None)
 
-def reset_zadost_state():
-    st.session_state.pop("zadost_dialog_aktivni", None)
-    for k in ["dlg_zadost_latina", "dlg_zadost_cestina", "dlg_zadost_lekce", "dlg_zadost_poznamka"]:
-        st.session_state.pop(k, None)
+def reset_bulk_delete_state(lang: str | None = None):
+    langs = [lang] if lang else list(JAZYKY.keys())
+    for l in langs:
+        st.session_state[f"{l}_bulk_delete_active"] = False
 
-@st.dialog("Požádat o přidání chybějícího slova", on_dismiss=reset_zadost_state)
-def dialog_zadost_o_slovo(aktualni_df: pd.DataFrame):
-    st.markdown(
-        "Pokud v databázi chybí slovíčko, které potřebujete, "
-        "vyplňte formulář níže a správce jej posoudí."
-    )
 
-    existujici_lekce = sorted(list(set(aktualni_df['Lekce'].unique()) - {''}), key=klic_serazeni_lekci)
-    lekce_options = ["(neurčeno)"] + existujici_lekce
+def reset_generator_balicek_state(lang: str | None = None):
+    langs = [lang] if lang else list(JAZYKY.keys())
+    for l in langs:
+        st.session_state[f"{l}_generator_balicek_dialog"] = False
 
-    nova_latina = st.text_input(
-        "Latina *",
-        placeholder="např. victoria, ae, f",
-        help="Latinské slovo ve slovníkovém tvaru",
-        key="dlg_zadost_latina"
-    )
-    nova_cestina = st.text_input(
-        "Čeština (volitelné)",
-        placeholder="např. vítězství",
-        help="Český překlad, pokud ho znáte",
-        key="dlg_zadost_cestina"
-    )
-    vyber_lekce = st.selectbox(
-        "Lekce (volitelné):",
-        options=lekce_options,
-        key="dlg_zadost_lekce",
-        help="Vyberte lekci, do které by slovo mělo patřit"
-    )
-    poznamka = st.text_area(
-        "Poznámka (volitelné)",
-        placeholder="Další kontext, kde jste na slovo narazili...",
-        key="dlg_zadost_poznamka",
-        max_chars=300
-    )
 
-    with st.container(horizontal=True):
-        tlacitko_odeslat = st.button("Odeslat žádost", type="primary", icon=":material/send:", key="btn_zadost_odeslat")
-        tlacitko_zrusit = st.button("Zrušit", key="btn_zadost_zrusit")
+def reset_import_csv_state(lang: str | None = None):
+    langs = [lang] if lang else list(JAZYKY.keys())
+    for l in langs:
+        st.session_state[f"{l}_import_csv_aktivni"] = False
+        for k in [
+            "csv_import_data",
+            "csv_import_last_file_id",
+            "csv_import_uploader",
+            "csv_import_vychozi_lekce",
+            "csv_import_dupl_rezim",
+            "csv_import_data_editor",
+        ]:
+            st.session_state.pop(f"{l}_{k}", None)
 
-    if tlacitko_zrusit:
-        reset_zadost_state()
-        st.rerun()
 
-    if tlacitko_odeslat:
-        latina_clean = nova_latina.strip()
-        if not latina_clean:
-            st.error("Pole 'Latina' je povinné.")
-        else:
-            lekce_val = "" if vyber_lekce == "(neurčeno)" else vyber_lekce
-            if pridej_zadost(latina_clean, nova_cestina.strip(), lekce_val, poznamka.strip()):
-                st.session_state["uzivatel_zprava"] = f"Žádost o slovo \u201e{latina_clean}\u201c byla úspěšně odeslána. Děkujeme!"
-                reset_zadost_state()
-                st.rerun()
+def reset_zadost_state(lang: str | None = None):
+    langs = [lang] if lang else list(JAZYKY.keys())
+    for l in langs:
+        st.session_state.pop(f"{l}_zadost_dialog_aktivni", None)
+        for k in ["dlg_zadost_slovo", "dlg_zadost_cestina", "dlg_zadost_lekce", "dlg_zadost_poznamka"]:
+            st.session_state.pop(f"{l}_{k}", None)
 
-def parsuj_import_csv(file_bytes: bytes, vychozi_lekce: str = "1") -> pd.DataFrame:
-    """
-    Načte a naparsuje CSV soubor se slovíčky (latinský slovníkový tvar; český překlad; číslo lekce).
-    Podporuje oddělovače (; nebo , nebo tab), volitelné hlavičky i různé uspořádání sloupců.
-    Pomocí druhy.py automaticky doplní mluvnické kategorie (druh, konjugace, deklinace).
-    """
-    text = file_bytes.decode('utf-8', errors='replace').strip()
-    if not text:
-        return pd.DataFrame(columns=['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'Konjugace', 'Deklinace'])
 
-    first_line = text.splitlines()[0]
-    sep = ';' if ';' in first_line else (',' if ',' in first_line else '\t')
-
-    reader = csv.reader(io.StringIO(text), delimiter=sep)
-    rows = [r for r in reader if r and any(cell.strip() for cell in r)]
-    if not rows:
-        return pd.DataFrame(columns=['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'Konjugace', 'Deklinace'])
-
-    def norm(s):
-        s_nfd = unicodedata.normalize('NFD', str(s).strip().lower())
-        return ''.join(c for c in s_nfd if unicodedata.category(c) != 'Mn')
-
-    def matches_any(s, substrings):
-        s_norm = norm(s)
-        return any(sub in s_norm for sub in substrings)
-
-    is_lat = lambda s: matches_any(s, ['lat', 'tvar', 'slovo', 'word'])
-    is_ces = lambda s: matches_any(s, ['ces', 'preklad', 'vyznam', 'czech'])
-    is_lek = lambda s: matches_any(s, ['lekc', 'less', 'cislo'])
-
-    first_row = [str(c).strip() for c in rows[0]]
-    ma_hlavicku = any(is_lat(c) or is_ces(c) or is_lek(c) for c in first_row)
-
-    data_rows = rows[1:] if ma_hlavicku else rows
-    vysledek = []
-
-    for r in data_rows:
-        lat, ces, lek, druh, konj, dekl = '', '', '', '', '', ''
-        if ma_hlavicku:
-            col_dict = {first_row[i]: r[i].strip() for i in range(min(len(first_row), len(r)))}
-            for col_name, val in col_dict.items():
-                if is_lat(col_name) and not lat: lat = val
-                elif is_ces(col_name) and not ces: ces = val
-                elif is_lek(col_name) and not lek: lek = val
-                elif 'druh' in col_name or 'pos' in col_name: druh = val
-                elif 'konj' in col_name: konj = val
-                elif 'dekl' in col_name: dekl = val
-        else:
-            vals = [str(c).strip() for c in r]
-            if len(vals) == 1:
-                if '||' in vals[0]:
-                    parts = vals[0].split('||', 1)
-                    lat, ces = parts[0].strip(), parts[1].strip()
-                else:
-                    continue
-            elif len(vals) == 2:
-                if '||' in vals[0]:
-                    parts = vals[0].split('||', 1)
-                    lat, ces = parts[0].strip(), parts[1].strip()
-                    lek = vals[1]
-                elif vals[0].isdigit() and not vals[1].isdigit():
-                    lek, lat = vals[0], vals[1]
-                else:
-                    lat, ces = vals[0], vals[1]
-            elif len(vals) >= 3:
-                # 3 nebo více sloupců
-                if (vals[0].isdigit() or vals[0].lower().startswith('lekce')) and not vals[2].isdigit():
-                    lek, lat, ces = vals[0], vals[1], vals[2]
-                    if len(vals) >= 4: druh = vals[3]
-                    if len(vals) >= 5: konj = vals[4]
-                    if len(vals) >= 6: dekl = vals[5]
-                else:
-                    lat, ces, lek = vals[0], vals[1], vals[2]
-                    if len(vals) >= 4: druh = vals[3]
-                    if len(vals) >= 5: konj = vals[4]
-                    if len(vals) >= 6: dekl = vals[5]
-
-        lat = str(lat).strip()
-        ces = str(ces).strip()
-        lek = str(lek).strip() or str(vychozi_lekce).strip()
-
-        if not lat or not ces:
-            continue
-
-        if not druh:
-            a_druh, a_konj, a_dekl = analyzuj_slovicko(lat)
-            druh = a_druh
-            if not konj: konj = a_konj
-            if not dekl: dekl = a_dekl
-
-        vysledek.append({
-            'Lekce': lek,
-            'Latina': lat,
-            'Čeština': ces,
-            'Slovní druh': druh,
-            'Konjugace': konj,
-            'Deklinace': dekl,
-            'konj./dekl.': konj if konj else dekl
-        })
-
-    return pd.DataFrame(vysledek)
-
-def dopln_mluvnicke_kategorie_do_state(latina_key: str, druh_key: str, konj_key: str, dekl_key: str, msg_key: str):
-    lat = st.session_state.get(latina_key, "").strip()
+def dopln_mluvnicke_kategorie_do_state(slovo_key: str, druh_key: str, konj_key: str, dekl_key: str, msg_key: str):
+    lat = st.session_state.get(slovo_key, "").strip()
     if not lat:
         st.session_state[msg_key] = ("warning", "⚠️ Nejprve zadejte slovníkový tvar do pole 'Latina'.")
         return
@@ -989,45 +948,130 @@ def dopln_mluvnicke_kategorie_do_state(latina_key: str, druh_key: str, konj_key:
             detaily.append(f"{dekl}. deklinace")
     st.session_state[msg_key] = ("success", f"Mluvnické kategorie doplněny: {', '.join(detaily)}")
 
-def on_add_doplnit_kategorie():
+
+def on_add_doplnit_kategorie(lang: str):
     dopln_mluvnicke_kategorie_do_state(
-        "dlg_add_latina", "dlg_add_druh", "dlg_add_konj", "dlg_add_dekl", "dlg_add_msg"
+        f"{lang}_dlg_add_slovo",
+        f"{lang}_dlg_add_druh",
+        f"{lang}_dlg_add_konj",
+        f"{lang}_dlg_add_dekl",
+        f"{lang}_dlg_add_msg",
     )
 
-def on_edit_doplnit_kategorie():
+
+def on_edit_doplnit_kategorie(lang: str):
     dopln_mluvnicke_kategorie_do_state(
-        "dlg_edit_latina", "dlg_edit_druh", "dlg_edit_konj", "dlg_edit_dekl", "dlg_edit_msg"
+        f"{lang}_dlg_edit_slovo",
+        f"{lang}_dlg_edit_druh",
+        f"{lang}_dlg_edit_konj",
+        f"{lang}_dlg_edit_dekl",
+        f"{lang}_dlg_edit_msg",
     )
 
-def on_admin_edit_click():
-    click = st.session_state.get("btn_admin_edit")
-    if click is not None and hasattr(click, "row"):
-        st.session_state.edit_row_idx = click.row
-    elif click is not None and isinstance(click, dict) and "row" in click:
-        st.session_state.edit_row_idx = click["row"]
 
-def on_admin_delete_click():
-    click = st.session_state.get("btn_admin_delete")
+def on_admin_edit_click(lang: str):
+    click = st.session_state.get(f"{lang}_btn_admin_edit")
     if click is not None and hasattr(click, "row"):
-        st.session_state.delete_row_idx = click.row
+        st.session_state[f"{lang}_edit_row_idx"] = click.row
     elif click is not None and isinstance(click, dict) and "row" in click:
-        st.session_state.delete_row_idx = click["row"]
+        st.session_state[f"{lang}_edit_row_idx"] = click["row"]
+
+
+def on_admin_delete_click(lang: str):
+    click = st.session_state.get(f"{lang}_btn_admin_delete")
+    if click is not None and hasattr(click, "row"):
+        st.session_state[f"{lang}_delete_row_idx"] = click.row
+    elif click is not None and isinstance(click, dict) and "row" in click:
+        st.session_state[f"{lang}_delete_row_idx"] = click["row"]
 
 # ==============================================================================
-# MODÁLNÍ DIALOGY ADMINISTRACE
+# MODÁLNÍ DIALOGY ADMINISTRACE A GENERÁTORU
 # ==============================================================================
+@st.dialog("Požádat o přidání chybějícího slova", on_dismiss=reset_zadost_state)
+def dialog_zadost_o_slovo(lang: str, aktualni_df: pd.DataFrame):
+    cfg = JAZYKY[lang]
+    col_cizi = cfg["sloupec"]
+
+    st.markdown(
+        "Pokud v databázi chybí slovíčko, které potřebujete, "
+        "vyplňte formulář níže a správce jej posoudí."
+    )
+
+    existujici_lekce = sorted(list(set(aktualni_df["Lekce"].unique()) - {""}), key=klic_serazeni_lekci)
+    lekce_options = ["(neurčeno)"] + existujici_lekce
+
+    nove_slovo = st.text_input(
+        f"{col_cizi} *",
+        placeholder=cfg["placeholder_slovo"],
+        help=cfg["help_slovo"],
+        key=f"{lang}_dlg_zadost_slovo",
+    )
+    nova_cestina = st.text_input(
+        "Čeština (volitelné)",
+        placeholder="např. vítězství" if lang == "latina" else "např. slovo",
+        help="Český překlad, pokud ho znáte",
+        key=f"{lang}_dlg_zadost_cestina",
+    )
+    vyber_lekce = st.selectbox(
+        "Lekce (volitelné):",
+        options=lekce_options,
+        key=f"{lang}_dlg_zadost_lekce",
+        help="Vyberte lekci, do které by slovo mělo patřit",
+    )
+    poznamka = st.text_area(
+        "Poznámka (volitelné)",
+        placeholder="Další kontext, kde jste na slovo narazili...",
+        key=f"{lang}_dlg_zadost_poznamka",
+        max_chars=300,
+    )
+
+    with st.container(horizontal=True):
+        tlacitko_odeslat = st.button(
+            "Odeslat žádost", type="primary", icon=":material/send:", key=f"{lang}_btn_zadost_odeslat"
+        )
+        tlacitko_zrusit = st.button("Zrušit", key=f"{lang}_btn_zadost_zrusit")
+
+    if tlacitko_zrusit:
+        reset_zadost_state(lang)
+        st.rerun()
+
+    if tlacitko_odeslat:
+        slovo_clean = nove_slovo.strip()
+        if not slovo_clean:
+            st.error(f"Pole '{col_cizi}' je povinné.")
+        else:
+            lekce_val = "" if vyber_lekce == "(neurčeno)" else vyber_lekce
+            if pridej_zadost(slovo_clean, nova_cestina.strip(), lekce_val, poznamka.strip(), lang=lang):
+                st.session_state[f"{lang}_uzivatel_zprava"] = (
+                    f"Žádost o slovo \u201e{slovo_clean}\u201c byla úspěšně odeslána. Děkujeme!"
+                )
+                reset_zadost_state(lang)
+                st.rerun()
+
+
 @st.dialog("Přidat nové slovíčko", on_dismiss=reset_pridat_state, width="large")
-def dialog_pridat_slovo(aktualni_df: pd.DataFrame):
-    existujici_lekce = sorted(list(set(aktualni_df['Lekce'].unique()) - {''}), key=klic_serazeni_lekci)
+def dialog_pridat_slovo(lang: str, aktualni_df: pd.DataFrame):
+    cfg = JAZYKY[lang]
+    col_cizi = cfg["sloupec"]
+    ma_gramatiku = cfg["ma_gramatiku"]
+
+    existujici_lekce = sorted(list(set(aktualni_df["Lekce"].unique()) - {""}), key=klic_serazeni_lekci)
     if not existujici_lekce:
         existujici_lekce = ["1"]
 
-    st.session_state.setdefault("dlg_add_druh", "Podstatné jméno")
-    st.session_state.setdefault("dlg_add_konj", "")
-    st.session_state.setdefault("dlg_add_dekl", "")
+    if ma_gramatiku:
+        druhy_moznosti = list(cfg["druhy_vychozi"])
+        st.session_state.setdefault(f"{lang}_dlg_add_druh", "Podstatné jméno")
+        st.session_state.setdefault(f"{lang}_dlg_add_konj", "")
+        st.session_state.setdefault(f"{lang}_dlg_add_dekl", "")
+    else:
+        druhy_z_dat = {str(d).strip() for d in aktualni_df["Slovní druh"].unique() if str(d).strip()}
+        druhy_moznosti = sorted(list(druhy_z_dat | set(cfg["druhy_vychozi"])))
+        st.session_state.setdefault(f"{lang}_dlg_add_druh", druhy_moznosti[0] if druhy_moznosti else "")
 
-    if "dlg_add_msg" in st.session_state:
-        m_t, m_v = st.session_state.pop("dlg_add_msg")
+    msg_key = f"{lang}_dlg_add_msg"
+    if msg_key in st.session_state:
+        m_t, m_v = st.session_state.pop(msg_key)
         if m_t == "success":
             st.success(m_v, icon=":material/auto_fix_high:")
         else:
@@ -1035,63 +1079,75 @@ def dialog_pridat_slovo(aktualni_df: pd.DataFrame):
 
     col_lekce1, col_lekce2 = st.columns(2)
     with col_lekce1:
-        vyber_lekce = st.selectbox("Existující lekce:", options=existujici_lekce, key="dlg_add_vyber_lekce")
+        vyber_lekce = st.selectbox(
+            "Existující lekce:", options=existujici_lekce, key=f"{lang}_dlg_add_vyber_lekce"
+        )
     with col_lekce2:
         nova_lekce = st.text_input(
             "Nebo zadejte nové číslo/název lekce:",
             placeholder="např. 6 (ponechte prázdné pro existující)",
-            key="dlg_add_nova_lekce"
+            key=f"{lang}_dlg_add_nova_lekce",
         )
 
-    col_lat, col_ces = st.columns(2)
-    with col_lat:
-        nova_latina = st.text_input(
-            "Latina *",
-            placeholder="např. victoria, ae, f",
-            help="Latinské slovo nebo fráze včetně gramatických koncovek",
-            key="dlg_add_latina"
+    col_cizi_box, col_ces = st.columns(2)
+    with col_cizi_box:
+        nove_slovo = st.text_input(
+            f"{col_cizi} *",
+            placeholder=cfg["placeholder_slovo"],
+            help=cfg["help_slovo"],
+            key=f"{lang}_dlg_add_slovo",
         )
     with col_ces:
         nova_cestina = st.text_input(
             "Čeština *",
-            placeholder="např. vítězství",
+            placeholder="např. vítězství" if lang == "latina" else "např. slovo",
             help="Český překlad",
-            key="dlg_add_cestina"
+            key=f"{lang}_dlg_add_cestina",
         )
 
-    # Tlačítko pro automatické doplnění mluvnických kategorií
-    st.button(
-        "Doplnit mluvnické kategorie",
-        icon=":material/auto_fix_high:",
-        on_click=on_add_doplnit_kategorie,
-        key="btn_add_autofill",
-        help="Automaticky určí slovní druh, konjugaci nebo deklinaci ze zadaného latinského tvaru podle pravidel v druhy.py"
-    )
+    nova_konj = ""
+    nova_dekl = ""
+    if ma_gramatiku:
+        st.button(
+            "Doplnit mluvnické kategorie",
+            icon=":material/auto_fix_high:",
+            on_click=on_add_doplnit_kategorie,
+            args=(lang,),
+            key=f"{lang}_btn_add_autofill",
+            help="Automaticky určí slovní druh, konjugaci nebo deklinaci ze zadaného latinského tvaru podle pravidel v druhy.py",
+        )
 
-    druhy_moznosti = ["Podstatné jméno", "Přídavné jméno", "Sloveso", "Zájmeno", "Ostatní"]
-    konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
-    dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
+        konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
+        dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
 
-    col_druh, col_gram1, col_gram2 = st.columns(3)
-    with col_druh:
+        col_druh, col_gram1, col_gram2 = st.columns(3)
+        with col_druh:
+            novy_druh = st.selectbox(
+                "Slovní druh *",
+                options=druhy_moznosti,
+                key=f"{lang}_dlg_add_druh",
+            )
+        with col_gram1:
+            nova_konj = st.selectbox(
+                "Konjugace (pro slovesa):",
+                options=konj_moznosti,
+                help="Vyplňte pouze u sloves",
+                key=f"{lang}_dlg_add_konj",
+            )
+        with col_gram2:
+            nova_dekl = st.selectbox(
+                "Deklinace (podst. a příd. jména):",
+                options=dekl_moznosti,
+                help="Vyplňte pro podstatná nebo přídavná jména",
+                key=f"{lang}_dlg_add_dekl",
+            )
+    else:
         novy_druh = st.selectbox(
             "Slovní druh *",
             options=druhy_moznosti,
-            key="dlg_add_druh"
-        )
-    with col_gram1:
-        nova_konj = st.selectbox(
-            "Konjugace (pro slovesa):",
-            options=konj_moznosti,
-            help="Vyplňte pouze u sloves",
-            key="dlg_add_konj"
-        )
-    with col_gram2:
-        nova_dekl = st.selectbox(
-            "Deklinace (podst. a příd. jména):",
-            options=dekl_moznosti,
-            help="Vyplňte pro podstatná nebo přídavná jména",
-            key="dlg_add_dekl"
+            accept_new_options=True,
+            help="Vyberte ze seznamu nebo zadejte vlastní slovní druh a potvrďte Enterem",
+            key=f"{lang}_dlg_add_druh",
         )
 
     st.markdown("<small>* Označená pole jsou povinná.</small>", unsafe_allow_html=True)
@@ -1100,89 +1156,115 @@ def dialog_pridat_slovo(aktualni_df: pd.DataFrame):
             "Uložit kartičku",
             type="primary",
             icon=":material/add_circle:",
-            key="btn_add_save"
+            key=f"{lang}_btn_add_save",
         )
-        tlacitko_zrusit = st.button("Zrušit", key="btn_add_cancel")
+        tlacitko_zrusit = st.button("Zrušit", key=f"{lang}_btn_add_cancel")
 
     if tlacitko_zrusit:
-        reset_pridat_state()
+        reset_pridat_state(lang)
         st.rerun()
 
     if tlacitko_ulozit:
         finalni_lekce = nova_lekce.strip() if nova_lekce.strip() else vyber_lekce.strip()
-        latina_clean = nova_latina.strip()
+        slovo_clean = nove_slovo.strip()
         cestina_clean = nova_cestina.strip()
+        druh_clean = str(novy_druh or "").strip()
 
         if not finalni_lekce:
             st.error("Vyberte nebo zadejte číslo lekce.")
-        elif not latina_clean:
-            st.error("Pole 'Latina' je povinné.")
+        elif not slovo_clean:
+            st.error(f"Pole '{col_cizi}' je povinné.")
         elif not cestina_clean:
             st.error("Pole 'Čeština' je povinné.")
+        elif not druh_clean:
+            st.error("Pole 'Slovní druh' je povinné.")
         else:
             duplicita = aktualni_df[
-                (aktualni_df['Latina'].str.lower() == latina_clean.lower()) &
-                (aktualni_df['Lekce'] == finalni_lekce)
+                (aktualni_df[col_cizi].str.lower() == slovo_clean.lower())
+                & (aktualni_df["Lekce"] == finalni_lekce)
             ]
             if len(duplicita) > 0:
-                st.warning(f"Upozornění: Slovíčko '{latina_clean}' v lekci {finalni_lekce} již v databázi existuje.")
+                st.warning(f"Upozornění: Slovíčko '{slovo_clean}' v lekci {finalni_lekce} již v databázi existuje.")
 
-            novy_zaznam = pd.DataFrame([{
-                "Lekce": finalni_lekce,
-                "Latina": latina_clean,
-                "Čeština": cestina_clean,
-                "Slovní druh": novy_druh,
-                "Konjugace": nova_konj if novy_druh == "Sloveso" else "",
-                "Deklinace": nova_dekl if novy_druh in ["Podstatné jméno", "Přídavné jméno"] else ""
-            }])
+            if ma_gramatiku:
+                novy_dict = {
+                    "Lekce": finalni_lekce,
+                    col_cizi: slovo_clean,
+                    "Čeština": cestina_clean,
+                    "Slovní druh": druh_clean,
+                    "Konjugace": nova_konj if druh_clean == "Sloveso" else "",
+                    "Deklinace": nova_dekl if druh_clean in ["Podstatné jméno", "Přídavné jméno"] else "",
+                }
+            else:
+                novy_dict = {
+                    "Lekce": finalni_lekce,
+                    col_cizi: slovo_clean,
+                    "Čeština": cestina_clean,
+                    "Slovní druh": druh_clean,
+                    "Rod": "",
+                }
 
+            novy_zaznam = pd.DataFrame([novy_dict])
             df_nove = pd.concat([aktualni_df, novy_zaznam], ignore_index=True)
-            if uloz_data(df_nove):
-                # Pokud se schvaluje žádost, označit ji jako vyřízenou
-                schvalovana_id = st.session_state.pop("schvalovana_zadost_id", None)
+            if uloz_data(df_nove, lang=lang):
+                schvalovana_id = st.session_state.pop(f"{lang}_schvalovana_zadost_id", None)
                 if schvalovana_id:
-                    zmen_stav_zadosti(schvalovana_id, "vyrizeno")
-                st.session_state["admin_zprava"] = f"Kartička '{latina_clean}' byla úspěšně přidána do lekce {finalni_lekce}."
-                reset_pridat_state()
+                    zmen_stav_zadosti(schvalovana_id, "vyrizeno", lang=lang)
+                st.session_state[f"{lang}_admin_zprava"] = (
+                    f"Kartička '{slovo_clean}' byla úspěšně přidána do lekce {finalni_lekce}."
+                )
+                reset_pridat_state(lang)
                 st.rerun()
 
+
 @st.dialog("Importovat slovíčka z CSV", on_dismiss=reset_import_csv_state, width="large")
-def dialog_import_csv(aktualni_df: pd.DataFrame):
-    st.write(
-        "Nahrajte CSV soubor obsahující **latinský slovníkový tvar; český překlad; číslo lekce**. "
-        "Mluvnické kategorie (slovní druh, deklinace, konjugace) budou automaticky určeny a doplněny. "
-        "Před přidáním do slovníku můžete v tabulce libovolná slovíčka zkontrolovat a upravit."
-    )
+def dialog_import_csv(lang: str, aktualni_df: pd.DataFrame):
+    cfg = JAZYKY[lang]
+    col_cizi = cfg["sloupec"]
+    ma_gramatiku = cfg["ma_gramatiku"]
+
+    if ma_gramatiku:
+        st.write(
+            "Nahrajte CSV soubor obsahující **latinský slovníkový tvar; český překlad; číslo lekce**. "
+            "Mluvnické kategorie (slovní druh, deklinace, konjugace) budou automaticky určeny a doplněny. "
+            "Před přidáním do slovníku můžete v tabulce libovolná slovíčka zkontrolovat a upravit."
+        )
+    else:
+        st.write(
+            "Nahrajte CSV soubor obsahující **řecký slovníkový tvar; český překlad; číslo lekce** "
+            "(případně i sloupec **Slovní druh** a **Rod**). "
+            "Před přidáním do slovníku můžete v tabulce libovolná slovíčka zkontrolovat a upravit."
+        )
 
     col_cfg1, col_cfg2 = st.columns([1, 1])
     with col_cfg1:
         vychozi_lekce = st.text_input(
             "Výchozí číslo lekce (pokud v souboru chybí):",
-            value=st.session_state.get("csv_import_vychozi_lekce", "1"),
-            key="csv_import_vychozi_lekce"
+            value=st.session_state.get(f"{lang}_csv_import_vychozi_lekce", "1"),
+            key=f"{lang}_csv_import_vychozi_lekce",
         )
     with col_cfg2:
         duplicity_rezim = st.selectbox(
             "Pokud slovíčko již v dané lekci ve slovníku existuje:",
             options=["Přeskočit existující v dané lekci", "Povolit duplicity"],
-            key="csv_import_dupl_rezim"
+            key=f"{lang}_csv_import_dupl_rezim",
         )
 
     uploaded_file = st.file_uploader(
         "Vyberte CSV soubor:",
         type=["csv", "txt"],
-        key="csv_import_uploader",
-        help="Podporované oddělovače: středník (;), čárka (,), tabulátor."
+        key=f"{lang}_csv_import_uploader",
+        help="Podporované oddělovače: středník (;), čárka (,), tabulátor.",
     )
 
     if uploaded_file is not None:
-        file_id = f"{uploaded_file.name}_{uploaded_file.size}_{vychozi_lekce}"
-        if st.session_state.get("csv_import_last_file_id") != file_id:
-            df_parsed = parsuj_import_csv(uploaded_file.getvalue(), vychozi_lekce)
-            st.session_state.csv_import_data = df_parsed
-            st.session_state.csv_import_last_file_id = file_id
+        file_id = f"{lang}_{uploaded_file.name}_{uploaded_file.size}_{vychozi_lekce}"
+        if st.session_state.get(f"{lang}_csv_import_last_file_id") != file_id:
+            df_parsed = parsuj_import_csv(uploaded_file.getvalue(), vychozi_lekce, lang=lang)
+            st.session_state[f"{lang}_csv_import_data"] = df_parsed
+            st.session_state[f"{lang}_csv_import_last_file_id"] = file_id
 
-    df_k_uprave = st.session_state.get("csv_import_data")
+    df_k_uprave = st.session_state.get(f"{lang}_csv_import_data")
 
     if df_k_uprave is not None:
         if df_k_uprave.empty:
@@ -1193,32 +1275,56 @@ def dialog_import_csv(aktualni_df: pd.DataFrame):
                 "nebo nevhodné řádky smazat před přidáním do slovníku:"
             )
 
-            druhy_moznosti = ["Podstatné jméno", "Přídavné jméno", "Sloveso", "Zájmeno", "Ostatní"]
-            konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
-            dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
+            if ma_gramatiku:
+                druhy_moznosti = list(cfg["druhy_vychozi"])
+                konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
+                dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
 
-            if "konj./dekl." not in df_k_uprave.columns:
-                konj_s = df_k_uprave.get("Konjugace", pd.Series("", index=df_k_uprave.index)).astype(str).str.strip()
-                dekl_s = df_k_uprave.get("Deklinace", pd.Series("", index=df_k_uprave.index)).astype(str).str.strip()
-                df_k_uprave["konj./dekl."] = konj_s.where(konj_s != "", dekl_s)
+                if "konj./dekl." not in df_k_uprave.columns:
+                    konj_s = df_k_uprave.get("Konjugace", pd.Series("", index=df_k_uprave.index)).astype(str).str.strip()
+                    dekl_s = df_k_uprave.get("Deklinace", pd.Series("", index=df_k_uprave.index)).astype(str).str.strip()
+                    df_k_uprave["konj./dekl."] = konj_s.where(konj_s != "", dekl_s)
+
+                col_cfg_editor = {
+                    "Lekce": st.column_config.TextColumn("Lekce", required=True, width="small"),
+                    "Latina": st.column_config.TextColumn("Latina", required=True, width="medium"),
+                    "Čeština": st.column_config.TextColumn("Čeština", required=True, width="medium"),
+                    "Slovní druh": st.column_config.SelectboxColumn(
+                        "Slovní druh", options=druhy_moznosti, required=True, width="medium"
+                    ),
+                    "konj./dekl.": st.column_config.TextColumn("konj./dekl.", width="small"),
+                    "Konjugace": st.column_config.SelectboxColumn(
+                        "Konjugace (slovesa)", options=konj_moznosti, width="small"
+                    ),
+                    "Deklinace": st.column_config.SelectboxColumn(
+                        "Deklinace (podst. a příd. jména)", options=dekl_moznosti, width="small"
+                    ),
+                }
+            else:
+                druhy_z_dat = {str(d).strip() for d in aktualni_df["Slovní druh"].unique() if str(d).strip()}
+                druhy_import = {str(d).strip() for d in df_k_uprave["Slovní druh"].unique() if str(d).strip()}
+                druhy_moznosti = [""] + sorted(list(druhy_z_dat | set(cfg["druhy_vychozi"]) | druhy_import))
+                col_cfg_editor = {
+                    "Lekce": st.column_config.TextColumn("Lekce", required=True, width="small"),
+                    "Řečtina": st.column_config.TextColumn("Řečtina", required=True, width="medium"),
+                    "Čeština": st.column_config.TextColumn("Čeština", required=True, width="medium"),
+                    "Slovní druh": st.column_config.SelectboxColumn(
+                        "Slovní druh", options=druhy_moznosti, width="medium"
+                    ),
+                    "Rod": None,
+                }
 
             edited_df = st.data_editor(
                 df_k_uprave,
                 num_rows="dynamic",
                 width="stretch",
-                column_config={
-                    "Lekce": st.column_config.TextColumn("Lekce", required=True, width="small"),
-                    "Latina": st.column_config.TextColumn("Latina", required=True, width="medium"),
-                    "Čeština": st.column_config.TextColumn("Čeština", required=True, width="medium"),
-                    "Slovní druh": st.column_config.SelectboxColumn("Slovní druh", options=druhy_moznosti, required=True, width="medium"),
-                    "konj./dekl.": st.column_config.TextColumn("konj./dekl.", width="small"),
-                    "Konjugace": st.column_config.SelectboxColumn("Konjugace (slovesa)", options=konj_moznosti, width="small"),
-                    "Deklinace": st.column_config.SelectboxColumn("Deklinace (podst. a příd. jména)", options=dekl_moznosti, width="small"),
-                },
-                key="csv_import_data_editor"
+                column_config=col_cfg_editor,
+                key=f"{lang}_csv_import_data_editor",
             )
 
-            mask_valid = (edited_df['Latina'].astype(str).str.strip() != "") & (edited_df['Čeština'].astype(str).str.strip() != "")
+            mask_valid = (edited_df[col_cizi].astype(str).str.strip() != "") & (
+                edited_df["Čeština"].astype(str).str.strip() != ""
+            )
             pocet_platnych = int(mask_valid.sum())
 
             with st.container(horizontal=True):
@@ -1226,29 +1332,28 @@ def dialog_import_csv(aktualni_df: pd.DataFrame):
                     f"Přidat do slovníku ({pocet_platnych} slov)",
                     type="primary",
                     icon=":material/library_add:",
-                    key="btn_csv_import_save",
-                    disabled=(pocet_platnych == 0)
+                    key=f"{lang}_btn_csv_import_save",
+                    disabled=(pocet_platnych == 0),
                 )
-                tlacitko_zrusit = st.button("Zrušit", key="btn_csv_import_cancel")
+                tlacitko_zrusit = st.button("Zrušit", key=f"{lang}_btn_csv_import_cancel")
 
             if tlacitko_zrusit:
-                reset_import_csv_state()
+                reset_import_csv_state(lang)
                 st.rerun()
 
             if tlacitko_import:
                 df_ciste = edited_df[mask_valid].copy()
-                df_ciste['Latina'] = df_ciste['Latina'].astype(str).str.strip()
-                df_ciste['Čeština'] = df_ciste['Čeština'].astype(str).str.strip()
-                df_ciste['Lekce'] = df_ciste['Lekce'].astype(str).str.strip()
-                df_ciste['Slovní druh'] = df_ciste['Slovní druh'].astype(str).str.strip()
-                df_ciste['Konjugace'] = df_ciste['Konjugace'].astype(str).str.strip()
-                df_ciste['Deklinace'] = df_ciste['Deklinace'].astype(str).str.strip()
+                for col in cfg["sloupce_csv"]:
+                    if col not in df_ciste.columns:
+                        df_ciste[col] = ""
+                    df_ciste[col] = df_ciste[col].fillna("").astype(str).str.strip()
+                df_ciste = df_ciste[cfg["sloupce_csv"]]
 
                 preskoceno = 0
                 if duplicity_rezim == "Přeskočit existující v dané lekci":
-                    existujici_pary = set(zip(aktualni_df['Latina'].str.lower(), aktualni_df['Lekce'].astype(str)))
+                    existujici_pary = set(zip(aktualni_df[col_cizi].str.lower(), aktualni_df["Lekce"].astype(str)))
                     mask_nova = [
-                        (row['Latina'].lower(), str(row['Lekce'])) not in existujici_pary
+                        (row[col_cizi].lower(), str(row["Lekce"])) not in existujici_pary
                         for _, row in df_ciste.iterrows()
                     ]
                     preskoceno = len(df_ciste) - sum(mask_nova)
@@ -1259,79 +1364,112 @@ def dialog_import_csv(aktualni_df: pd.DataFrame):
                 if len(df_k_pridani) == 0:
                     st.warning("Nebyla přidána žádná nová slovíčka (všechna již v databázi existují).")
                 else:
-                    # 1. Automatická záloha stávající databáze
-                    cas_razitko = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    cesta_zaloha = os.path.join(ZALOHY_DIR, f"slovicka_zaloha_{cas_razitko}.csv")
-                    aktualni_df.to_csv(cesta_zaloha, sep=";", index=False, encoding="utf-8")
+                    zalohy_dir = get_zalohy_dir(lang)
+                    importy_dir = get_importy_dir(lang)
+                    os.makedirs(zalohy_dir, exist_ok=True)
+                    os.makedirs(importy_dir, exist_ok=True)
 
-                    # 2. Uložení samostatného CSV importu do složky data/importy/
-                    lekce_list = sorted(list(set(df_k_pridani['Lekce'])))
-                    lekce_tag = f"lekce_{lekce_list[0]}-{lekce_list[-1]}" if len(lekce_list) > 1 else f"lekce_{lekce_list[0]}" if lekce_list else "import"
-                    cesta_import = os.path.join(IMPORTY_DIR, f"{lekce_tag}_{cas_razitko}.csv")
+                    cas_razitko = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    cesta_zaloha = os.path.join(zalohy_dir, f"slovicka_zaloha_{cas_razitko}.csv")
+                    aktualni_df[cfg["sloupce_csv"]].to_csv(cesta_zaloha, sep=";", index=False, encoding="utf-8")
+
+                    lekce_list = sorted(list(set(df_k_pridani["Lekce"])))
+                    lekce_tag = (
+                        f"lekce_{lekce_list[0]}-{lekce_list[-1]}"
+                        if len(lekce_list) > 1
+                        else f"lekce_{lekce_list[0]}"
+                        if lekce_list
+                        else "import"
+                    )
+                    cesta_import = os.path.join(importy_dir, f"{lekce_tag}_{cas_razitko}.csv")
                     df_k_pridani.to_csv(cesta_import, sep=";", index=False, encoding="utf-8")
 
-                    # 3. Přidání do master databáze slovíček
                     df_nove = pd.concat([aktualni_df, df_k_pridani], ignore_index=True)
-                    if uloz_data(df_nove):
+                    if uloz_data(df_nove, lang=lang):
                         msg = f"Úspěšně přidáno {len(df_k_pridani)} slovíček do slovníku!"
                         if preskoceno > 0:
                             msg += f" (Přeskočeno {preskoceno} duplicitních slovíček.)"
                         msg += f" Samostatné CSV bylo uloženo do '{cesta_import}'."
-                        st.session_state["admin_zprava"] = msg
-                        reset_import_csv_state()
+                        st.session_state[f"{lang}_admin_zprava"] = msg
+                        reset_import_csv_state(lang)
                         st.rerun()
     else:
         with st.container(horizontal=True):
-            if st.button("Zavřít", key="btn_csv_import_close"):
-                reset_import_csv_state()
+            if st.button("Zavřít", key=f"{lang}_btn_csv_import_close"):
+                reset_import_csv_state(lang)
                 st.rerun()
 
+
 @st.dialog("Upravit slovíčko", on_dismiss=reset_edit_state, width="large")
-def dialog_upravit_slovo(real_idx: int, aktualni_df: pd.DataFrame):
+def dialog_upravit_slovo(lang: str, real_idx: int, aktualni_df: pd.DataFrame):
+    cfg = JAZYKY[lang]
+    col_cizi = cfg["sloupec"]
+    ma_gramatiku = cfg["ma_gramatiku"]
+
     if real_idx not in aktualni_df.index:
-        reset_edit_state()
+        reset_edit_state(lang)
         st.rerun()
 
     karta = aktualni_df.loc[real_idx]
-    existujici_lekce = sorted(list(set(aktualni_df['Lekce'].unique()) - {''}), key=klic_serazeni_lekci)
+    existujici_lekce = sorted(list(set(aktualni_df["Lekce"].unique()) - {""}), key=klic_serazeni_lekci)
     if not existujici_lekce:
         existujici_lekce = ["1"]
 
-    druhy_moznosti = ["Podstatné jméno", "Přídavné jméno", "Sloveso", "Zájmeno", "Ostatní"]
-    konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
-    dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
+    if ma_gramatiku:
+        druhy_moznosti = list(cfg["druhy_vychozi"])
+        konj_moznosti = ["", "1", "2", "3", "4", "nepravidelná"]
+        dekl_moznosti = ["", "1", "2", "3", "4", "5", "1., 2.", "nesklonná"]
+    else:
+        druhy_z_dat = {str(d).strip() for d in aktualni_df["Slovní druh"].unique() if str(d).strip()}
+        druhy_moznosti = sorted(list(druhy_z_dat | set(cfg["druhy_vychozi"])))
+        konj_moznosti = []
+        dekl_moznosti = []
 
-    # Inicializace hodnot při prvním otevření editace pro danou kartu
-    if st.session_state.get("dlg_edit_initialized_idx") != real_idx:
-        lekce_val = str(karta['Lekce']).strip()
-        if lekce_val.endswith('.0'): lekce_val = lekce_val[:-2]
-        if lekce_val == 'nan': lekce_val = ''
+    if st.session_state.get(f"{lang}_dlg_edit_initialized_idx") != real_idx:
+        lekce_val = str(karta["Lekce"]).strip()
+        if lekce_val.endswith(".0"):
+            lekce_val = lekce_val[:-2]
+        if lekce_val == "nan":
+            lekce_val = ""
 
-        druh_val = str(karta['Slovní druh']).strip()
-        if druh_val not in druhy_moznosti: druh_val = "Ostatní"
+        druh_val = str(karta["Slovní druh"]).strip()
+        if ma_gramatiku:
+            if druh_val not in druhy_moznosti:
+                druh_val = "Ostatní"
 
-        konj_val = str(karta['Konjugace']).strip()
-        if konj_val.endswith('.0'): konj_val = konj_val[:-2]
-        if konj_val == 'nan' or konj_val not in konj_moznosti: konj_val = ''
+            konj_val = str(karta["Konjugace"]).strip()
+            if konj_val.endswith(".0"):
+                konj_val = konj_val[:-2]
+            if konj_val == "nan" or konj_val not in konj_moznosti:
+                konj_val = ""
 
-        dekl_val = str(karta['Deklinace']).strip()
-        if dekl_val.endswith('.0'): dekl_val = dekl_val[:-2]
-        if dekl_val == 'nan': dekl_val = ''
-        if dekl_val and dekl_val not in dekl_moznosti:
-            dekl_moznosti.append(dekl_val)
+            dekl_val = str(karta["Deklinace"]).strip()
+            if dekl_val.endswith(".0"):
+                dekl_val = dekl_val[:-2]
+            if dekl_val == "nan":
+                dekl_val = ""
+            if dekl_val and dekl_val not in dekl_moznosti:
+                dekl_moznosti.append(dekl_val)
 
-        st.session_state.dlg_edit_initialized_idx = real_idx
-        st.session_state.dlg_edit_vyber_lekce = lekce_val if lekce_val in existujici_lekce else existujici_lekce[0]
-        st.session_state.dlg_edit_nova_lekce = "" if lekce_val in existujici_lekce else lekce_val
-        st.session_state.dlg_edit_latina = str(karta['Latina'])
-        st.session_state.dlg_edit_cestina = str(karta['Čeština'])
-        st.session_state.dlg_edit_druh = druh_val
-        st.session_state.dlg_edit_konj = konj_val
-        st.session_state.dlg_edit_dekl = dekl_val
-        st.session_state.pop("dlg_edit_msg", None)
+            st.session_state[f"{lang}_dlg_edit_konj"] = konj_val
+            st.session_state[f"{lang}_dlg_edit_dekl"] = dekl_val
+        else:
+            if not druh_val:
+                druh_val = druhy_moznosti[0] if druhy_moznosti else ""
 
-    if "dlg_edit_msg" in st.session_state:
-        m_t, m_v = st.session_state.pop("dlg_edit_msg")
+        st.session_state[f"{lang}_dlg_edit_initialized_idx"] = real_idx
+        st.session_state[f"{lang}_dlg_edit_vyber_lekce"] = (
+            lekce_val if lekce_val in existujici_lekce else existujici_lekce[0]
+        )
+        st.session_state[f"{lang}_dlg_edit_nova_lekce"] = "" if lekce_val in existujici_lekce else lekce_val
+        st.session_state[f"{lang}_dlg_edit_slovo"] = str(karta[col_cizi])
+        st.session_state[f"{lang}_dlg_edit_cestina"] = str(karta["Čeština"])
+        st.session_state[f"{lang}_dlg_edit_druh"] = druh_val
+        st.session_state.pop(f"{lang}_dlg_edit_msg", None)
+
+    msg_key = f"{lang}_dlg_edit_msg"
+    if msg_key in st.session_state:
+        m_t, m_v = st.session_state.pop(msg_key)
         if m_t == "success":
             st.success(m_v, icon=":material/auto_fix_high:")
         else:
@@ -1339,59 +1477,72 @@ def dialog_upravit_slovo(real_idx: int, aktualni_df: pd.DataFrame):
 
     col_lekce1, col_lekce2 = st.columns(2)
     with col_lekce1:
-        vyber_lekce = st.selectbox("Existující lekce:", options=existujici_lekce, key="dlg_edit_vyber_lekce")
+        vyber_lekce = st.selectbox(
+            "Existující lekce:", options=existujici_lekce, key=f"{lang}_dlg_edit_vyber_lekce"
+        )
     with col_lekce2:
         nova_lekce = st.text_input(
             "Nebo zadejte nové číslo/název lekce:",
             placeholder="např. 6 (ponechte prázdné pro existující)",
-            key="dlg_edit_nova_lekce"
+            key=f"{lang}_dlg_edit_nova_lekce",
         )
 
-    col_lat, col_ces = st.columns(2)
-    with col_lat:
-        nova_latina = st.text_input(
-            "Latina *",
-            placeholder="např. victoria, ae, f",
-            help="Latinské slovo nebo fráze včetně gramatických koncovek",
-            key="dlg_edit_latina"
+    col_cizi_box, col_ces = st.columns(2)
+    with col_cizi_box:
+        nove_slovo = st.text_input(
+            f"{col_cizi} *",
+            placeholder=cfg["placeholder_slovo"],
+            help=cfg["help_slovo"],
+            key=f"{lang}_dlg_edit_slovo",
         )
     with col_ces:
         nova_cestina = st.text_input(
             "Čeština *",
-            placeholder="např. vítězství",
+            placeholder="např. vítězství" if lang == "latina" else "např. slovo",
             help="Český překlad",
-            key="dlg_edit_cestina"
+            key=f"{lang}_dlg_edit_cestina",
         )
 
-    # Tlačítko pro automatické doplnění mluvnických kategorií
-    st.button(
-        "Doplnit mluvnické kategorie",
-        icon=":material/auto_fix_high:",
-        on_click=on_edit_doplnit_kategorie,
-        key="btn_edit_autofill",
-        help="Automaticky určí slovní druh, konjugaci nebo deklinaci ze zadaného latinského tvaru podle pravidel v druhy.py"
-    )
+    nova_konj = ""
+    nova_dekl = ""
+    if ma_gramatiku:
+        st.button(
+            "Doplnit mluvnické kategorie",
+            icon=":material/auto_fix_high:",
+            on_click=on_edit_doplnit_kategorie,
+            args=(lang,),
+            key=f"{lang}_btn_edit_autofill",
+            help="Automaticky určí slovní druh, konjugaci nebo deklinaci ze zadaného latinského tvaru podle pravidel v druhy.py",
+        )
 
-    col_druh, col_gram1, col_gram2 = st.columns(3)
-    with col_druh:
+        col_druh, col_gram1, col_gram2 = st.columns(3)
+        with col_druh:
+            novy_druh = st.selectbox(
+                "Slovní druh *",
+                options=druhy_moznosti,
+                key=f"{lang}_dlg_edit_druh",
+            )
+        with col_gram1:
+            nova_konj = st.selectbox(
+                "Konjugace (pro slovesa):",
+                options=konj_moznosti,
+                help="Vyplňte pouze u sloves",
+                key=f"{lang}_dlg_edit_konj",
+            )
+        with col_gram2:
+            nova_dekl = st.selectbox(
+                "Deklinace (podst. a příd. jména):",
+                options=dekl_moznosti,
+                help="Vyplňte pro podstatná nebo přídavná jména",
+                key=f"{lang}_dlg_edit_dekl",
+            )
+    else:
         novy_druh = st.selectbox(
             "Slovní druh *",
             options=druhy_moznosti,
-            key="dlg_edit_druh"
-        )
-    with col_gram1:
-        nova_konj = st.selectbox(
-            "Konjugace (pro slovesa):",
-            options=konj_moznosti,
-            help="Vyplňte pouze u sloves",
-            key="dlg_edit_konj"
-        )
-    with col_gram2:
-        nova_dekl = st.selectbox(
-            "Deklinace (podst. a příd. jména):",
-            options=dekl_moznosti,
-            help="Vyplňte pro podstatná nebo přídavná jména",
-            key="dlg_edit_dekl"
+            accept_new_options=True,
+            help="Vyberte ze seznamu nebo zadejte vlastní slovní druh a potvrďte Enterem",
+            key=f"{lang}_dlg_edit_druh",
         )
 
     st.markdown("<small>* Označená pole jsou povinná.</small>", unsafe_allow_html=True)
@@ -1400,80 +1551,95 @@ def dialog_upravit_slovo(real_idx: int, aktualni_df: pd.DataFrame):
             "Uložit změny",
             type="primary",
             icon=":material/save:",
-            key="btn_edit_save"
+            key=f"{lang}_btn_edit_save",
         )
-        tlacitko_zrusit = st.button("Zrušit", key="btn_edit_cancel")
+        tlacitko_zrusit = st.button("Zrušit", key=f"{lang}_btn_edit_cancel")
 
     if tlacitko_zrusit:
-        reset_edit_state()
+        reset_edit_state(lang)
         st.rerun()
 
     if tlacitko_ulozit:
         finalni_lekce = nova_lekce.strip() if nova_lekce.strip() else vyber_lekce.strip()
-        latina_clean = nova_latina.strip()
+        slovo_clean = nove_slovo.strip()
         cestina_clean = nova_cestina.strip()
+        druh_clean = str(novy_druh or "").strip()
 
         if not finalni_lekce:
             st.error("Vyberte nebo zadejte číslo lekce.")
-        elif not latina_clean:
-            st.error("Pole 'Latina' je povinné.")
+        elif not slovo_clean:
+            st.error(f"Pole '{col_cizi}' je povinné.")
         elif not cestina_clean:
             st.error("Pole 'Čeština' je povinné.")
+        elif not druh_clean:
+            st.error("Pole 'Slovní druh' je povinné.")
         else:
             duplicita = aktualni_df[
-                (aktualni_df.index != real_idx) &
-                (aktualni_df['Latina'].str.lower() == latina_clean.lower()) &
-                (aktualni_df['Lekce'] == finalni_lekce)
+                (aktualni_df.index != real_idx)
+                & (aktualni_df[col_cizi].str.lower() == slovo_clean.lower())
+                & (aktualni_df["Lekce"] == finalni_lekce)
             ]
             if len(duplicita) > 0:
-                st.warning(f"Upozornění: Slovíčko '{latina_clean}' v lekci {finalni_lekce} již v databázi existuje.")
+                st.warning(f"Upozornění: Slovíčko '{slovo_clean}' v lekci {finalni_lekce} již v databázi existuje.")
 
             aktualni_df.loc[real_idx, "Lekce"] = finalni_lekce
-            aktualni_df.loc[real_idx, "Latina"] = latina_clean
+            aktualni_df.loc[real_idx, col_cizi] = slovo_clean
             aktualni_df.loc[real_idx, "Čeština"] = cestina_clean
-            aktualni_df.loc[real_idx, "Slovní druh"] = novy_druh
-            aktualni_df.loc[real_idx, "Konjugace"] = nova_konj if novy_druh == "Sloveso" else ""
-            aktualni_df.loc[real_idx, "Deklinace"] = nova_dekl if novy_druh in ["Podstatné jméno", "Přídavné jméno"] else ""
+            aktualni_df.loc[real_idx, "Slovní druh"] = druh_clean
+            if ma_gramatiku:
+                aktualni_df.loc[real_idx, "Konjugace"] = nova_konj if druh_clean == "Sloveso" else ""
+                aktualni_df.loc[real_idx, "Deklinace"] = (
+                    nova_dekl if druh_clean in ["Podstatné jméno", "Přídavné jméno"] else ""
+                )
 
-            if uloz_data(aktualni_df):
-                st.session_state["admin_zprava"] = f"Kartička '{latina_clean}' byla úspěšně upravena."
-                reset_edit_state()
+            if uloz_data(aktualni_df, lang=lang):
+                st.session_state[f"{lang}_admin_zprava"] = f"Kartička '{slovo_clean}' byla úspěšně upravena."
+                reset_edit_state(lang)
                 st.rerun()
 
+
 @st.dialog("Smazat kartičku", on_dismiss=reset_delete_state)
-def dialog_smazat_slovo(real_idx: int, aktualni_df: pd.DataFrame):
+def dialog_smazat_slovo(lang: str, real_idx: int, aktualni_df: pd.DataFrame):
+    cfg = JAZYKY[lang]
+    col_cizi = cfg["sloupec"]
+
     if real_idx not in aktualni_df.index:
-        reset_delete_state()
+        reset_delete_state(lang)
         st.rerun()
 
     karta = aktualni_df.loc[real_idx]
     st.warning("Opravdu chcete trvale smazat tuto kartičku?", icon=":material/warning:")
     with st.container(border=True):
-        st.markdown(f"**Latina:** `{karta['Latina']}`")
+        st.markdown(f"**{col_cizi}:** `{karta[col_cizi]}`")
         st.markdown(f"**Čeština:** {karta['Čeština']}")
         st.caption(f"Lekce: {karta['Lekce']} | Slovní druh: {karta['Slovní druh']}")
 
     col_d1, col_d2 = st.columns(2)
     with col_d1:
-        if st.button("Smazat kartičku", type="primary", icon=":material/delete:"):
-            lat = karta['Latina']
+        if st.button("Smazat kartičku", type="primary", icon=":material/delete:", key=f"{lang}_btn_del_confirm"):
+            slovo_val = karta[col_cizi]
             df_novy = aktualni_df.drop(index=real_idx).reset_index(drop=True)
-            if uloz_data(df_novy):
-                st.session_state["admin_zprava"] = f"Kartička '{lat}' byla úspěšně smazána."
-            reset_delete_state()
-            st.session_state.admin_selected_rows = []
-            st.session_state.admin_table_ver += 1
+            if uloz_data(df_novy, lang=lang):
+                st.session_state[f"{lang}_admin_zprava"] = f"Kartička '{slovo_val}' byla úspěšně smazána."
+            reset_delete_state(lang)
+            st.session_state[f"{lang}_admin_selected_rows"] = []
+            st.session_state[f"{lang}_admin_table_ver"] = st.session_state.get(f"{lang}_admin_table_ver", 0) + 1
             st.rerun()
     with col_d2:
-        if st.button("Zrušit"):
-            reset_delete_state()
+        if st.button("Zrušit", key=f"{lang}_btn_del_cancel"):
+            reset_delete_state(lang)
             st.rerun()
 
+
 @st.dialog("Hromadné smazání kartiček", on_dismiss=reset_bulk_delete_state)
-def dialog_hromadne_smazani(selected_indices: list, aktualni_df: pd.DataFrame):
-    st.warning(f"Opravdu chcete trvale smazat **{len(selected_indices)}** vybraných kartiček?", icon=":material/warning:")
-    
-    sloupce_ukazky = [c for c in ['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'konj./dekl.'] if c in aktualni_df.columns]
+def dialog_hromadne_smazani(lang: str, selected_indices: list, aktualni_df: pd.DataFrame):
+    cfg = JAZYKY[lang]
+    st.warning(
+        f"Opravdu chcete trvale smazat **{len(selected_indices)}** vybraných kartiček?",
+        icon=":material/warning:",
+    )
+
+    sloupce_ukazky = [c for c in cfg["sloupce_tabulka"] if c in aktualni_df.columns]
     ukazka = aktualni_df.loc[selected_indices, sloupce_ukazky].head(5)
     st.dataframe(ukazka, hide_index=True)
     if len(selected_indices) > 5:
@@ -1481,55 +1647,70 @@ def dialog_hromadne_smazani(selected_indices: list, aktualni_df: pd.DataFrame):
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Potvrdit smazání", type="primary", icon=":material/delete_forever:"):
+        if st.button(
+            "Potvrdit smazání",
+            type="primary",
+            icon=":material/delete_forever:",
+            key=f"{lang}_btn_bulk_del_confirm",
+        ):
             df_novy = aktualni_df.drop(index=selected_indices).reset_index(drop=True)
-            if uloz_data(df_novy):
-                st.session_state["admin_zprava"] = f"Úspěšně smazáno {len(selected_indices)} kartiček."
-            reset_bulk_delete_state()
-            st.session_state.admin_selected_rows = []
-            st.session_state.admin_table_ver += 1
+            if uloz_data(df_novy, lang=lang):
+                st.session_state[f"{lang}_admin_zprava"] = f"Úspěšně smazáno {len(selected_indices)} kartiček."
+            reset_bulk_delete_state(lang)
+            st.session_state[f"{lang}_admin_selected_rows"] = []
+            st.session_state[f"{lang}_admin_table_ver"] = st.session_state.get(f"{lang}_admin_table_ver", 0) + 1
             st.rerun()
     with col2:
-        if st.button("Zrušit"):
-            reset_bulk_delete_state()
+        if st.button("Zrušit", key=f"{lang}_btn_bulk_del_cancel"):
+            reset_bulk_delete_state(lang)
             st.rerun()
 
+
 @st.dialog("Vytvořit balíček pro Anki", on_dismiss=reset_generator_balicek_state, width="medium")
-def dialog_vytvorit_balicek(df_filtered: pd.DataFrame):
+def dialog_vytvorit_balicek(lang: str, df_filtered: pd.DataFrame):
+    cfg = JAZYKY[lang]
+    nazev_jazyka = cfg["nazev"]
+    vychozi_nazev = cfg["vychozi_balicek"]
+
     st.write(f"Vybráno slovíček k exportu: **{len(df_filtered)}**")
 
     nazev = st.text_input(
         "Název balíčku (jak se bude jmenovat v Anki):",
-        value=st.session_state.get("nazev_balicku", "Latina - Můj výběr"),
-        key="dlg_gen_nazev_balicku"
+        value=st.session_state.get(f"{lang}_nazev_balicku", vychozi_nazev),
+        key=f"{lang}_dlg_gen_nazev_balicku",
     )
 
     popis = st.text_area(
         "Popis balíčku (volitelný, zobrazí se v knihovně):",
         placeholder="Např. Výběr sloves a podstatných jmen z 1. a 2. lekce...",
-        key="dlg_gen_popis_balicku"
+        key=f"{lang}_dlg_gen_popis_balicku",
     )
 
     st.markdown("##### Typy kartiček (Směr učení)")
     col_s1, col_s2 = st.columns(2)
     with col_s1:
-        smer_lat_ces = st.checkbox("Latina ➔ Čeština", value=True, key="dlg_gen_smer_lat_ces")
+        smer_cizi_ces = st.checkbox(
+            f"{nazev_jazyka} ➔ Čeština", value=True, key=f"{lang}_dlg_gen_smer_cizi_ces"
+        )
     with col_s2:
-        smer_ces_lat = st.checkbox("Čeština ➔ Latina", value=True, key="dlg_gen_smer_ces_lat")
+        smer_ces_cizi = st.checkbox(
+            f"Čeština ➔ {nazev_jazyka}", value=True, key=f"{lang}_dlg_gen_smer_ces_cizi"
+        )
 
-    if not smer_lat_ces and not smer_ces_lat:
-        st.warning("⚠️ Vyberte alespoň jeden směr kartiček (např. Latina ➔ Čeština).")
+    if not smer_cizi_ces and not smer_ces_cizi:
+        st.warning(f"⚠️ Vyberte alespoň jeden směr kartiček (např. {nazev_jazyka} ➔ Čeština).")
     else:
-        aktualni_nazev = nazev.strip() or "Latina - Můj výběr"
-        st.session_state.nazev_balicku = aktualni_nazev
-        pocet_karet = len(df_filtered) * (int(smer_lat_ces) + int(smer_ces_lat))
+        aktualni_nazev = nazev.strip() or vychozi_nazev
+        st.session_state[f"{lang}_nazev_balicku"] = aktualni_nazev
+        pocet_karet = len(df_filtered) * (int(smer_cizi_ces) + int(smer_ces_cizi))
         st.info(f"📊 Celkem bude vygenerováno **{pocet_karet}** karet pro Anki.")
 
-        apkg_soubor = vytvor_anki_balicek(df_filtered, aktualni_nazev, smer_lat_ces, smer_ces_lat)
+        apkg_soubor = vytvor_anki_balicek(
+            df_filtered, aktualni_nazev, smer_cizi_ces, smer_ces_cizi, lang=lang
+        )
 
         st.markdown("---")
         st.markdown("##### Možnosti uložení")
-
 
         col_b1, col_b2 = st.columns(2)
         with col_b1:
@@ -1538,60 +1719,94 @@ def dialog_vytvorit_balicek(df_filtered: pd.DataFrame):
                 data=apkg_soubor,
                 file_name=f"{aktualni_nazev.replace(' ', '_')}.apkg",
                 mime="application/octet-stream",
-                key="btn_dl_direct",
+                key=f"{lang}_btn_dl_direct",
                 help="Stáhne balíček do zařízení bez uložení do veřejné knihovny",
-                width="stretch"
+                width="stretch",
             )
 
         with col_b2:
             if st.session_state.admin_prihlasen:
-                if st.button("🚀 Publikovat a stáhnout balíček", type="primary", icon=":material/publish:", key="btn_pub_admin", width="stretch"):
-                    ok, msg, cesta = publikuj_balicek(aktualni_nazev, popis, smer_lat_ces, smer_ces_lat, df_filtered)
+                if st.button(
+                    "🚀 Publikovat a stáhnout balíček",
+                    type="primary",
+                    icon=":material/publish:",
+                    key=f"{lang}_btn_pub_admin",
+                    width="stretch",
+                ):
+                    ok, msg, cesta = publikuj_balicek(
+                        aktualni_nazev, popis, smer_cizi_ces, smer_ces_cizi, df_filtered, lang=lang
+                    )
                     if ok:
-                        st.session_state["pub_success"] = (aktualni_nazev, apkg_soubor.getvalue())
+                        st.session_state[f"{lang}_pub_success"] = (aktualni_nazev, apkg_soubor.getvalue())
                         st.rerun()
                     else:
                         st.error(msg)
             else:
-                with st.popover("🚀 Publikovat a stáhnout balíček", icon=":material/publish:", type="primary", width="stretch"):
+                with st.popover(
+                    "🚀 Publikovat a stáhnout balíček",
+                    icon=":material/publish:",
+                    type="primary",
+                    width="stretch",
+                ):
                     st.caption("Pro publikování balíčku do veřejné knihovny zadejte heslo správce:")
-                    heslo_pub = st.text_input("Administrátorské heslo:", type="password", key="dlg_pub_heslo")
-                    if st.button("Ověřit a publikovat", type="primary", icon=":material/publish:", key="btn_pub_guest", width="stretch"):
+                    heslo_pub = st.text_input(
+                        "Administrátorské heslo:", type="password", key=f"{lang}_dlg_pub_heslo"
+                    )
+                    if st.button(
+                        "Ověřit a publikovat",
+                        type="primary",
+                        icon=":material/publish:",
+                        key=f"{lang}_btn_pub_guest",
+                        width="stretch",
+                    ):
                         spravne = nacti_admin_heslo()
                         if over_heslo(heslo_pub, spravne):
                             st.session_state.admin_prihlasen = True
-                            ok, msg, cesta = publikuj_balicek(aktualni_nazev, popis, smer_lat_ces, smer_ces_lat, df_filtered)
+                            ok, msg, cesta = publikuj_balicek(
+                                aktualni_nazev, popis, smer_cizi_ces, smer_ces_cizi, df_filtered, lang=lang
+                            )
                             if ok:
-                                st.session_state["pub_success"] = (aktualni_nazev, apkg_soubor.getvalue())
+                                st.session_state[f"{lang}_pub_success"] = (aktualni_nazev, apkg_soubor.getvalue())
                                 st.rerun()
                             else:
                                 st.error(msg)
                         else:
                             st.error("Nesprávné administrátorské heslo.")
 
-        if "pub_success" in st.session_state:
-            p_nazev, p_bytes = st.session_state.pop("pub_success")
-            st.success(f"🎉 Balíček '{p_nazev}' byl úspěšně publikován do Knihovny kartiček!", icon=":material/check_circle:")
+        pub_key = f"{lang}_pub_success"
+        if pub_key in st.session_state:
+            p_nazev, p_bytes = st.session_state.pop(pub_key)
+            st.success(
+                f"🎉 Balíček '{p_nazev}' byl úspěšně publikován do Knihovny kartiček!",
+                icon=":material/check_circle:",
+            )
             st.download_button(
                 label=f"📥 Stáhnout publikovaný balíček ({pocet_karet} karet)",
                 data=p_bytes,
                 file_name=f"{p_nazev.replace(' ', '_')}.apkg",
                 mime="application/octet-stream",
                 type="primary",
-                key="btn_dl_pub_done"
+                key=f"{lang}_btn_dl_pub_done",
             )
 
 # ==============================================================================
 # STRÁNKA 1: GENERÁTOR KARTIČEK
 # ==============================================================================
-def stranka_generator():
-    st.title("📚 Generátor latinských kartiček pro Anki")
+def stranka_generator(lang: str = "latina"):
+    cfg = JAZYKY[lang]
+    ma_gramatiku = cfg["ma_gramatiku"]
+
+    st.title(cfg["titulek_generator"])
 
     zobraz_sidebar_admin_status()
 
+    df_lang = ziskej_data_jazyka(lang)
+    if df_lang is None:
+        return
+
     st.info(
         "💡 **Chybí vám nějaké slovo?**\n\n"
-        "Pokud v databázi postrádáte některé slovíčko, můžete požádat o jeho přidání v záložce [Slovník](slovnik).",
+        f"Pokud v databázi postrádáte některé slovíčko, můžete požádat o jeho přidání v záložce [Slovník]({cfg['url_slovnik']}).",
         icon=":material/info:",
     )
 
@@ -1599,73 +1814,88 @@ def stranka_generator():
     st.sidebar.header("Nastavení filtru")
 
     # 1. Filtr Lekcí
-    dostupne_lekce = sorted([l for l in df['Lekce'].unique() if l], key=klic_serazeni_lekci)
+    dostupne_lekce = sorted([l for l in df_lang["Lekce"].unique() if l], key=klic_serazeni_lekci)
     vybrane_lekce = st.sidebar.multiselect(
-        "Vyber lekce:", 
-        options=dostupne_lekce, 
+        "Vyber lekce:",
+        options=dostupne_lekce,
         default=dostupne_lekce,
-        key="gen_lekce"
+        key=f"{lang}_gen_lekce",
     )
 
     # 2. Filtr Slovních druhů
-    dostupne_druhy = sorted([d for d in df['Slovní druh'].unique() if d])
+    dostupne_druhy = sorted([d for d in df_lang["Slovní druh"].unique() if d])
     vybrane_druhy = st.sidebar.multiselect(
-        "Vyber slovní druhy:", 
-        options=dostupne_druhy, 
+        "Vyber slovní druhy:",
+        options=dostupne_druhy,
         default=dostupne_druhy,
-        key="gen_druhy"
+        key=f"{lang}_gen_druhy",
     )
 
-    chci_slovesa = 'Sloveso' in vybrane_druhy
-    chci_substantiva = 'Podstatné jméno' in vybrane_druhy
-    chci_adjektiva = 'Přídavné jméno' in vybrane_druhy
-
-    # 3. Dodatečné filtry (Konjugace / Deklinace)
+    # 3. Dodatečné filtry (Konjugace / Deklinace – pouze pro latinu)
     vybrane_konjugace = []
-    if chci_slovesa:
-        dostupne_konj = sorted([k for k in df['Konjugace'].unique() if k])
-        vybrane_konjugace = st.sidebar.multiselect(
-            "Vyber konjugace (jen pro slovesa):", 
-            options=dostupne_konj, 
-            default=dostupne_konj,
-            key="gen_konj"
-        )
-
     vybrane_deklinace = []
-    if chci_substantiva or chci_adjektiva:
-        dostupne_dekl = sorted([d for d in df['Deklinace'].unique() if d])
-        label_dekl = "Vyber deklinace (podst. a příd. jména):" if (chci_substantiva and chci_adjektiva) else ("Vyber deklinace (jen pro podst. jména):" if chci_substantiva else "Vyber deklinace (jen pro příd. jména):")
-        vybrane_deklinace = st.sidebar.multiselect(
-            label_dekl, 
-            options=dostupne_dekl, 
-            default=dostupne_dekl,
-            key="gen_dekl"
-        )
+    if ma_gramatiku:
+        chci_slovesa = "Sloveso" in vybrane_druhy
+        chci_substantiva = "Podstatné jméno" in vybrane_druhy
+        chci_adjektiva = "Přídavné jméno" in vybrane_druhy
+
+        if chci_slovesa:
+            dostupne_konj = sorted([k for k in df_lang["Konjugace"].unique() if k])
+            vybrane_konjugace = st.sidebar.multiselect(
+                "Vyber konjugace (jen pro slovesa):",
+                options=dostupne_konj,
+                default=dostupne_konj,
+                key=f"{lang}_gen_konj",
+            )
+
+        if chci_substantiva or chci_adjektiva:
+            dostupne_dekl = sorted([d for d in df_lang["Deklinace"].unique() if d])
+            label_dekl = (
+                "Vyber deklinace (podst. a příd. jména):"
+                if (chci_substantiva and chci_adjektiva)
+                else (
+                    "Vyber deklinace (jen pro podst. jména):"
+                    if chci_substantiva
+                    else "Vyber deklinace (jen pro příd. jména):"
+                )
+            )
+            vybrane_deklinace = st.sidebar.multiselect(
+                label_dekl,
+                options=dostupne_dekl,
+                default=dostupne_dekl,
+                key=f"{lang}_gen_dekl",
+            )
 
     # 4. Vyhledávání textu
     hledany_text = st.sidebar.text_input(
         "Hledat výraz:",
-        placeholder="Latina nebo čeština...",
+        placeholder=cfg["placeholder_hledani"],
         icon=":material/search:",
-        key="gen_search"
+        key=f"{lang}_gen_search",
+    )
+    diakritika_help = (
+        "Zapněte pro přesné vyhledávání včetně háčků, čárek a makrónů (ā, ē, ī, ō, ū)"
+        if ma_gramatiku
+        else "Zapněte pro přesné vyhledávání včetně řeckých přídechů a akcentů (ἀ, ἡ, ῶ, ...)"
     )
     citlive_diakritika = st.sidebar.toggle(
         "Rozlišovat diakritiku",
-        value=st.session_state.get("citlive_diakritika", False),
-        key="gen_diakritika",
-        help="Zapněte pro přesné vyhledávání včetně háčků, čárek a makrónů (ā, ē, ī, ō, ū)"
+        value=st.session_state.get(f"{lang}_citlive_diakritika", False),
+        key=f"{lang}_gen_diakritika",
+        help=diakritika_help,
     )
-    st.session_state["citlive_diakritika"] = citlive_diakritika
+    st.session_state[f"{lang}_citlive_diakritika"] = citlive_diakritika
 
     # Aplikování filtrů na data pomocí sdílené funkce
     df_filtered = aplikuj_filtry(
-        df,
+        df_lang,
         vybrane_lekce,
         vybrane_druhy,
         vybrane_konjugace,
         vybrane_deklinace,
         hledany_text,
-        citlive_diakritika
+        citlive_diakritika,
+        lang=lang,
     )
     st.sidebar.metric("Vyfiltrováno kartiček", len(df_filtered))
 
@@ -1673,8 +1903,9 @@ def stranka_generator():
     st.subheader(f"Nalezeno slovíček: {len(df_filtered)}")
 
     st.dataframe(
-        df_filtered[['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'konj./dekl.']],
-        alt="Seznam filtrovaných latinských slovíček"
+        df_filtered[cfg["sloupce_tabulka"]],
+        key=f"{lang}_gen_df",
+        alt=cfg["alt_generator"],
     )
 
     # Tlačítko pro vytvoření balíčku
@@ -1685,52 +1916,67 @@ def stranka_generator():
             type="primary",
             icon=":material/style:",
             disabled=(len(df_filtered) == 0),
-            help="Otevře nastavení a umožní stáhnout balíček pro Anki ze zobrazených slovíček"
+            key=f"{lang}_btn_vytvorit_balicek",
+            help="Otevře nastavení a umožní stáhnout balíček pro Anki ze zobrazených slovíček",
         )
         if tlacitko_vytvorit:
-            st.session_state.generator_balicek_dialog = True
+            st.session_state[f"{lang}_generator_balicek_dialog"] = True
             st.rerun()
 
-    if st.session_state.get("generator_balicek_dialog", False):
+    if st.session_state.get(f"{lang}_generator_balicek_dialog", False):
         if len(df_filtered) > 0:
-            dialog_vytvorit_balicek(df_filtered)
+            dialog_vytvorit_balicek(lang, df_filtered)
         else:
-            st.session_state.generator_balicek_dialog = False
+            st.session_state[f"{lang}_generator_balicek_dialog"] = False
+
 
 # ==============================================================================
-# STRÁNKA 2: KNIHOVNA KARTIČEK
+# STRÁNKA 2: KNIHOVNA KARTIČEK (SDÍLENÁ PRO OBA JAZYKY)
 # ==============================================================================
 def stranka_knihovna():
     st.title("📚 Knihovna kartiček")
 
     zobraz_sidebar_admin_status()
 
-    knihovna = nacti_knihovnu()
+    celkova_knihovna = nacti_knihovnu()
 
     st.sidebar.header("Knihovna")
+    filtr_jazyk = st.sidebar.segmented_control(
+        "Jazyk:",
+        options=["Všechny", "Latina", "Řečtina"],
+        default="Všechny",
+        key="lib_lang_filter",
+    )
     hledat_text = st.sidebar.text_input(
         "Hledat v knihovně:",
         placeholder="Název nebo popis...",
         icon=":material/search:",
-        key="lib_search"
+        key="lib_search",
     )
-    st.sidebar.metric("Celkem balíčků v knihovně", len(knihovna))
+    st.sidebar.metric("Celkem balíčků v knihovně", len(celkova_knihovna))
+
+    knihovna = celkova_knihovna
+    if filtr_jazyk == "Latina":
+        knihovna = [b for b in knihovna if b.get("jazyk", "latina") == "latina"]
+    elif filtr_jazyk == "Řečtina":
+        knihovna = [b for b in knihovna if b.get("jazyk", "latina") == "rectina"]
 
     if hledat_text and hledat_text.strip():
         q = hledat_text.strip().lower()
         knihovna = [
-            b for b in knihovna
+            b
+            for b in knihovna
             if q in b.get("nazev", "").lower() or q in b.get("popis", "").lower()
         ]
 
     if not knihovna:
-        if hledat_text:
-            st.info(f"Žádný balíček neodpovídá hledanému výrazu '{hledat_text}'.", icon=":material/search_off:")
+        if hledat_text or (filtr_jazyk and filtr_jazyk != "Všechny"):
+            st.info("Žádný balíček neodpovídá zvoleným filtrům.", icon=":material/search_off:")
         else:
             st.info(
                 "V knihovně zatím nejsou žádné balíčky kartiček. "
                 "Vytvořit a publikovat balíček můžete v záložce **Generátor kartiček**.",
-                icon=":material/info:"
+                icon=":material/info:",
             )
         return
 
@@ -1738,8 +1984,11 @@ def stranka_knihovna():
 
     for b in knihovna:
         b_id = b.get("id", "")
+        jazyk_kod = b.get("jazyk", "latina")
+        cfg_b = JAZYKY.get(jazyk_kod, JAZYKY["latina"])
+
         with st.container(border=True):
-            st.subheader(f"🎴 {b.get('nazev', 'Bez názvu')}")
+            st.subheader(f"🎴 {b.get('nazev', 'Bez názvu')} :{cfg_b['badge_color']}-badge[{cfg_b['nazev']}]")
             st.caption(
                 f"📅 {b.get('datum', '')} • "
                 f"📖 Slovíček: **{b.get('pocet_slovicek', 0)}** • "
@@ -1769,18 +2018,25 @@ def stranka_knihovna():
                         file_name=b.get("nazev_souboru", f"{b.get('nazev', 'balicek')}.apkg"),
                         mime="application/octet-stream",
                         type="primary",
-                        key=f"dl_btn_{b_id}"
+                        key=f"dl_btn_{b_id}",
                     )
 
                 if st.session_state.admin_prihlasen:
-                    if st.button("Smazat balíček", icon=":material/delete:", type="secondary", key=f"del_btn_{b_id}"):
+                    if st.button(
+                        "Smazat balíček", icon=":material/delete:", type="secondary", key=f"del_btn_{b_id}"
+                    ):
                         st.session_state[f"confirm_del_{b_id}"] = True
                         st.rerun()
 
             if st.session_state.get(f"confirm_del_{b_id}", False):
                 st.warning(f"Opravdu si přejete trvale smazat balíček **{b.get('nazev')}** z knihovny?")
                 with st.container(horizontal=True):
-                    if st.button("Ano, smazat", type="primary", icon=":material/delete_forever:", key=f"conf_yes_{b_id}"):
+                    if st.button(
+                        "Ano, smazat",
+                        type="primary",
+                        icon=":material/delete_forever:",
+                        key=f"conf_yes_{b_id}",
+                    ):
                         smaz_balicek_z_knihovny(b_id)
                         st.session_state.pop(f"confirm_del_{b_id}", None)
                         st.toast(f"Balíček '{b.get('nazev')}' byl smazán z knihovny.", icon="🗑️")
@@ -1793,123 +2049,151 @@ def stranka_knihovna():
             if karticky:
                 with st.expander(f"🔍 Detail balíčku — seznam kartiček ({len(karticky)} slovíček)"):
                     df_kart = pd.DataFrame(karticky)
-                    if "konj./dekl." not in df_kart.columns:
-                        konj_k = df_kart.get("Konjugace", pd.Series("", index=df_kart.index)).astype(str).str.strip()
-                        dekl_k = df_kart.get("Deklinace", pd.Series("", index=df_kart.index)).astype(str).str.strip()
+                    if cfg_b["ma_gramatiku"] and "konj./dekl." not in df_kart.columns:
+                        konj_k = (
+                            df_kart.get("Konjugace", pd.Series("", index=df_kart.index))
+                            .astype(str)
+                            .str.strip()
+                        )
+                        dekl_k = (
+                            df_kart.get("Deklinace", pd.Series("", index=df_kart.index))
+                            .astype(str)
+                            .str.strip()
+                        )
                         df_kart["konj./dekl."] = konj_k.where(konj_k != "", dekl_k)
-                    sloupce_kart = [c for c in ["Lekce", "Latina", "Čeština", "Slovní druh", "konj./dekl."] if c in df_kart.columns]
+                    sloupce_kart = [c for c in cfg_b["sloupce_tabulka"] if c in df_kart.columns]
                     st.dataframe(df_kart[sloupce_kart], hide_index=True, width="stretch")
+
 
 # ==============================================================================
 # STRÁNKA 3: SLOVNÍK (PŘEJMENOVANÁ ADMINISTRACE)
 # ==============================================================================
-def stranka_slovnik():
-    st.title("📖 Slovník latinských slovíček")
+def stranka_slovnik(lang: str = "latina"):
+    cfg = JAZYKY[lang]
+    col_cizi = cfg["sloupec"]
+    ma_gramatiku = cfg["ma_gramatiku"]
+
+    st.title(cfg["titulek_slovnik"])
 
     zobraz_sidebar_admin_status()
 
-    # Inicializace session state pro slovník
-    if "admin_selected_rows" not in st.session_state:
-        st.session_state.admin_selected_rows = []
-    if "admin_table_ver" not in st.session_state:
-        st.session_state.admin_table_ver = 0
-    if "pridat_slovo_aktivni" not in st.session_state:
-        st.session_state.pridat_slovo_aktivni = False
-    if "import_csv_aktivni" not in st.session_state:
-        st.session_state.import_csv_aktivni = False
-    if "edit_row_idx" not in st.session_state:
-        st.session_state.edit_row_idx = None
-    if "delete_row_idx" not in st.session_state:
-        st.session_state.delete_row_idx = None
-    if "bulk_delete_active" not in st.session_state:
-        st.session_state.bulk_delete_active = False
+    df_lang = ziskej_data_jazyka(lang)
+    if df_lang is None:
+        return
+
+    # Inicializace session state pro slovník (s prefixem jazyka)
+    st.session_state.setdefault(f"{lang}_admin_selected_rows", [])
+    st.session_state.setdefault(f"{lang}_admin_table_ver", 0)
+    st.session_state.setdefault(f"{lang}_pridat_slovo_aktivni", False)
+    st.session_state.setdefault(f"{lang}_import_csv_aktivni", False)
+    st.session_state.setdefault(f"{lang}_edit_row_idx", None)
+    st.session_state.setdefault(f"{lang}_delete_row_idx", None)
+    st.session_state.setdefault(f"{lang}_bulk_delete_active", False)
 
     # Zobrazení případné uložené zprávy z předchozí akce
-    if "admin_zprava" in st.session_state:
-        st.success(st.session_state.pop("admin_zprava"), icon=":material/check_circle:")
+    if f"{lang}_admin_zprava" in st.session_state:
+        st.success(st.session_state.pop(f"{lang}_admin_zprava"), icon=":material/check_circle:")
 
     # Filtry v postranním panelu
     st.sidebar.header("Nastavení filtru")
-    st.sidebar.metric("Celkem kartiček v databázi", len(df))
+    st.sidebar.metric("Celkem kartiček v databázi", len(df_lang))
 
-    dostupne_lekce = sorted([l for l in df['Lekce'].unique() if l], key=klic_serazeni_lekci)
+    dostupne_lekce = sorted([l for l in df_lang["Lekce"].unique() if l], key=klic_serazeni_lekci)
     vybrane_lekce = st.sidebar.multiselect(
-        "Vyber lekce:", 
-        options=dostupne_lekce, 
+        "Vyber lekce:",
+        options=dostupne_lekce,
         default=dostupne_lekce,
-        key="admin_lekce"
+        key=f"{lang}_admin_lekce",
     )
 
-    dostupne_druhy = sorted([d for d in df['Slovní druh'].unique() if d])
+    dostupne_druhy = sorted([d for d in df_lang["Slovní druh"].unique() if d])
     vybrane_druhy = st.sidebar.multiselect(
-        "Vyber slovní druhy:", 
-        options=dostupne_druhy, 
+        "Vyber slovní druhy:",
+        options=dostupne_druhy,
         default=dostupne_druhy,
-        key="admin_druhy"
+        key=f"{lang}_admin_druhy",
     )
-
-    chci_slovesa = 'Sloveso' in vybrane_druhy
-    chci_substantiva = 'Podstatné jméno' in vybrane_druhy
-    chci_adjektiva = 'Přídavné jméno' in vybrane_druhy
 
     vybrane_konjugace = []
-    if chci_slovesa:
-        dostupne_konj = sorted([k for k in df['Konjugace'].unique() if k])
-        vybrane_konjugace = st.sidebar.multiselect(
-            "Vyber konjugace (jen pro slovesa):", 
-            options=dostupne_konj, 
-            default=dostupne_konj,
-            key="admin_konj"
-        )
-
     vybrane_deklinace = []
-    if chci_substantiva or chci_adjektiva:
-        dostupne_dekl = sorted([d for d in df['Deklinace'].unique() if d])
-        label_dekl = "Vyber deklinace (podst. a příd. jména):" if (chci_substantiva and chci_adjektiva) else ("Vyber deklinace (jen pro podst. jména):" if chci_substantiva else "Vyber deklinace (jen pro příd. jména):")
-        vybrane_deklinace = st.sidebar.multiselect(
-            label_dekl, 
-            options=dostupne_dekl, 
-            default=dostupne_dekl,
-            key="admin_dekl"
-        )
+    if ma_gramatiku:
+        chci_slovesa = "Sloveso" in vybrane_druhy
+        chci_substantiva = "Podstatné jméno" in vybrane_druhy
+        chci_adjektiva = "Přídavné jméno" in vybrane_druhy
+
+        if chci_slovesa:
+            dostupne_konj = sorted([k for k in df_lang["Konjugace"].unique() if k])
+            vybrane_konjugace = st.sidebar.multiselect(
+                "Vyber konjugace (jen pro slovesa):",
+                options=dostupne_konj,
+                default=dostupne_konj,
+                key=f"{lang}_admin_konj",
+            )
+
+        if chci_substantiva or chci_adjektiva:
+            dostupne_dekl = sorted([d for d in df_lang["Deklinace"].unique() if d])
+            label_dekl = (
+                "Vyber deklinace (podst. a příd. jména):"
+                if (chci_substantiva and chci_adjektiva)
+                else (
+                    "Vyber deklinace (jen pro podst. jména):"
+                    if chci_substantiva
+                    else "Vyber deklinace (jen pro příd. jména):"
+                )
+            )
+            vybrane_deklinace = st.sidebar.multiselect(
+                label_dekl,
+                options=dostupne_dekl,
+                default=dostupne_dekl,
+                key=f"{lang}_admin_dekl",
+            )
 
     hledany_text = st.sidebar.text_input(
         "Hledat výraz:",
-        placeholder="Latina nebo čeština...",
+        placeholder=cfg["placeholder_hledani"],
         icon=":material/search:",
-        key="admin_search"
+        key=f"{lang}_admin_search",
+    )
+    diakritika_help = (
+        "Zapněte pro přesné vyhledávání včetně háčků, čárek a makrónů (ā, ē, ī, ō, ū)"
+        if ma_gramatiku
+        else "Zapněte pro přesné vyhledávání včetně řeckých přídechů a akcentů (ἀ, ἡ, ῶ, ...)"
     )
     citlive_diakritika = st.sidebar.toggle(
         "Rozlišovat diakritiku",
-        value=st.session_state.get("citlive_diakritika", False),
-        key="admin_diakritika",
-        help="Zapněte pro přesné vyhledávání včetně háčků, čárek a makrónů (ā, ē, ī, ō, ū)"
+        value=st.session_state.get(f"{lang}_citlive_diakritika", False),
+        key=f"{lang}_admin_diakritika",
+        help=diakritika_help,
     )
-    st.session_state["citlive_diakritika"] = citlive_diakritika
+    st.session_state[f"{lang}_citlive_diakritika"] = citlive_diakritika
 
     df_filtered = aplikuj_filtry(
-        df,
+        df_lang,
         vybrane_lekce,
         vybrane_druhy,
         vybrane_konjugace,
         vybrane_deklinace,
         hledany_text,
-        citlive_diakritika
+        citlive_diakritika,
+        lang=lang,
     )
     st.sidebar.metric("Vyfiltrováno kartiček", len(df_filtered))
 
     if not st.session_state.admin_prihlasen:
-        st.info("💡 Pro přidávání slovíček, import z CSV a úpravu či mazání kartiček se přihlaste v záložce **Přihlásit se**.", icon=":material/lock:")
+        st.info(
+            "💡 Pro přidávání slovíček, import z CSV a úpravu či mazání kartiček se přihlaste v záložce **Přihlásit se**.",
+            icon=":material/lock:",
+        )
 
         # Zobrazení zprávy po odeslání žádosti
-        if "uzivatel_zprava" in st.session_state:
-            st.success(st.session_state.pop("uzivatel_zprava"), icon=":material/check_circle:")
+        if f"{lang}_uzivatel_zprava" in st.session_state:
+            st.success(st.session_state.pop(f"{lang}_uzivatel_zprava"), icon=":material/check_circle:")
 
-        if st.button("Požádat o chybějící slovo", icon=":material/record_voice_over:"):
-            st.session_state.zadost_dialog_aktivni = True
+        if st.button("Požádat o chybějící slovo", icon=":material/record_voice_over:", key=f"{lang}_btn_pozadat_slovo"):
+            st.session_state[f"{lang}_zadost_dialog_aktivni"] = True
             st.rerun()
 
-        st.caption(f"Zobrazeno **{len(df_filtered)}** z celkem {len(df)} kartiček")
+        st.caption(f"Zobrazeno **{len(df_filtered)}** z celkem {len(df_lang)} kartiček")
         if len(df_filtered) == 0:
             st.info("Zadaným filtrům neodpovídá žádné slovíčko.")
             if hledany_text and hledany_text.strip():
@@ -1919,74 +2203,99 @@ def stranka_slovnik():
                 )
         else:
             st.dataframe(
-                df_filtered[['Lekce', 'Latina', 'Čeština', 'Slovní druh', 'konj./dekl.']],
+                df_filtered[cfg["sloupce_tabulka"]],
                 hide_index=True,
                 width="stretch",
-                alt="Slovník latinských slovíček"
+                key=f"{lang}_public_slovnik_df",
+                alt=cfg["alt_slovnik"],
             )
 
-        # Otevření dialogu pro žádost
-        if st.session_state.get("zadost_dialog_aktivni"):
-            dialog_zadost_o_slovo(df)
+        if st.session_state.get(f"{lang}_zadost_dialog_aktivni"):
+            dialog_zadost_o_slovo(lang, df_lang)
     else:
-        # Zobrazení zprávy po akci se žádostí
-        if "admin_zprava_zadost" in st.session_state:
-            st.success(st.session_state.pop("admin_zprava_zadost"), icon=":material/check_circle:")
+        if f"{lang}_admin_zprava_zadost" in st.session_state:
+            st.success(st.session_state.pop(f"{lang}_admin_zprava_zadost"), icon=":material/check_circle:")
 
         # Záložky: Přehled slovíček + Žádosti o přidání
-        zadosti = nacti_zadosti()
+        zadosti = nacti_zadosti(lang)
         pocet_nevyrizenych = sum(1 for z in zadosti if z.get("stav") == "cekajici")
         tab_label_slova = "📚 Přehled a správa slovíček"
-        tab_label_zadosti = f"📬 Žádosti o přidání slova ({pocet_nevyrizenych})" if pocet_nevyrizenych > 0 else "📬 Žádosti o přidání slova"
+        tab_label_zadosti = (
+            f"📬 Žádosti o přidání slova ({pocet_nevyrizenych})"
+            if pocet_nevyrizenych > 0
+            else "📬 Žádosti o přidání slova"
+        )
         tab_slovnik, tab_zadosti = st.tabs([tab_label_slova, tab_label_zadosti])
 
         with tab_slovnik:
             # Reset označených řádků při změně filtrů
-            filtr_sig = (tuple(vybrane_lekce), tuple(vybrane_druhy), tuple(vybrane_konjugace), tuple(vybrane_deklinace), hledany_text, citlive_diakritika)
-            if st.session_state.get("admin_last_filtr") != filtr_sig:
-                st.session_state.admin_last_filtr = filtr_sig
-                st.session_state.admin_selected_rows = []
-                st.session_state.admin_table_ver += 1
+            filtr_sig = (
+                tuple(vybrane_lekce),
+                tuple(vybrane_druhy),
+                tuple(vybrane_konjugace),
+                tuple(vybrane_deklinace),
+                hledany_text,
+                citlive_diakritika,
+            )
+            if st.session_state.get(f"{lang}_admin_last_filtr") != filtr_sig:
+                st.session_state[f"{lang}_admin_last_filtr"] = filtr_sig
+                st.session_state[f"{lang}_admin_selected_rows"] = []
+                st.session_state[f"{lang}_admin_table_ver"] += 1
 
             # Zjištění aktuálně označených řádků
-            table_key = f"admin_table_{st.session_state.admin_table_ver}"
+            table_key = f"{lang}_admin_table_{st.session_state[f'{lang}_admin_table_ver']}"
             table_state = st.session_state.get(table_key)
             if table_state is not None and hasattr(table_state, "selection"):
                 selected_rows = [r for r in table_state.selection.rows if r < len(df_filtered)]
             else:
-                selected_rows = [r for r in st.session_state.admin_selected_rows if r < len(df_filtered)]
+                selected_rows = [
+                    r for r in st.session_state[f"{lang}_admin_selected_rows"] if r < len(df_filtered)
+                ]
             pocet_oznacenych = len(selected_rows)
 
             # Horní panel nástrojů (Toolbar)
             with st.container(horizontal=True):
-                if st.button("Přidat slovo", icon=":material/add:", type="primary"):
-                    st.session_state.pridat_slovo_aktivni = True
+                if st.button("Přidat slovo", icon=":material/add:", type="primary", key=f"{lang}_btn_add_open"):
+                    st.session_state[f"{lang}_pridat_slovo_aktivni"] = True
                     st.rerun()
 
-                if st.button("Importovat z CSV", icon=":material/upload_file:"):
-                    st.session_state.import_csv_aktivni = True
+                if st.button("Importovat z CSV", icon=":material/upload_file:", key=f"{lang}_btn_import_open"):
+                    st.session_state[f"{lang}_import_csv_aktivni"] = True
                     st.rerun()
 
-                if st.button("Označit všechny vyfiltrované", icon=":material/select_all:", disabled=(len(df_filtered) == 0)):
-                    st.session_state.admin_selected_rows = list(range(len(df_filtered)))
-                    st.session_state.admin_table_ver += 1
+                if st.button(
+                    "Označit všechny vyfiltrované",
+                    icon=":material/select_all:",
+                    disabled=(len(df_filtered) == 0),
+                    key=f"{lang}_btn_sel_all",
+                ):
+                    st.session_state[f"{lang}_admin_selected_rows"] = list(range(len(df_filtered)))
+                    st.session_state[f"{lang}_admin_table_ver"] += 1
                     st.rerun()
 
-                if st.button("Zrušit označení", icon=":material/deselect:", disabled=(pocet_oznacenych == 0)):
-                    st.session_state.admin_selected_rows = []
-                    st.session_state.admin_table_ver += 1
+                if st.button(
+                    "Zrušit označení",
+                    icon=":material/deselect:",
+                    disabled=(pocet_oznacenych == 0),
+                    key=f"{lang}_btn_desel_all",
+                ):
+                    st.session_state[f"{lang}_admin_selected_rows"] = []
+                    st.session_state[f"{lang}_admin_table_ver"] += 1
                     st.rerun()
 
                 if st.button(
                     f"Smazat označené ({pocet_oznacenych})" if pocet_oznacenych > 0 else "Smazat označené",
                     type="secondary",
                     icon=":material/delete_sweep:",
-                    disabled=(pocet_oznacenych == 0)
+                    disabled=(pocet_oznacenych == 0),
+                    key=f"{lang}_btn_bulk_del",
                 ):
-                    st.session_state.bulk_delete_active = True
+                    st.session_state[f"{lang}_bulk_delete_active"] = True
                     st.rerun()
 
-            st.caption(f"Zobrazeno **{len(df_filtered)}** z celkem {len(df)} kartiček | Označeno pro smazání: **{pocet_oznacenych}**")
+            st.caption(
+                f"Zobrazeno **{len(df_filtered)}** z celkem {len(df_lang)} kartiček | Označeno pro smazání: **{pocet_oznacenych}**"
+            )
 
             # Tabulka s přehledem kartiček
             if len(df_filtered) == 0:
@@ -1995,53 +2304,56 @@ def stranka_slovnik():
                 df_zobrazit = df_filtered.copy()
                 df_zobrazit["Upravit"] = ":material/edit:"
                 df_zobrazit["Smazat"] = ":material/delete:"
-                sloupce = ["Upravit", "Smazat", "Lekce", "Latina", "Čeština", "Slovní druh", "konj./dekl."]
+                sloupce = ["Upravit", "Smazat"] + cfg["sloupce_tabulka"]
                 df_zobrazit = df_zobrazit[sloupce]
+
+                col_config = {
+                    "Upravit": st.column_config.ButtonColumn(
+                        "Upravit",
+                        help="Upravit kartičku",
+                        width="small",
+                        pinned=True,
+                        on_click=on_admin_edit_click,
+                        args=(lang,),
+                        key=f"{lang}_btn_admin_edit",
+                    ),
+                    "Smazat": st.column_config.ButtonColumn(
+                        "Smazat",
+                        help="Smazat kartičku",
+                        width="small",
+                        pinned=True,
+                        on_click=on_admin_delete_click,
+                        args=(lang,),
+                        key=f"{lang}_btn_admin_delete",
+                    ),
+                    "Lekce": st.column_config.TextColumn("Lekce", width="small"),
+                    col_cizi: st.column_config.TextColumn(col_cizi, width="medium"),
+                    "Čeština": st.column_config.TextColumn("Čeština", width="medium"),
+                    "Slovní druh": st.column_config.TextColumn("Slovní druh", width="medium"),
+                }
+                if ma_gramatiku:
+                    col_config["konj./dekl."] = st.column_config.TextColumn("konj./dekl.", width="small")
 
                 st.dataframe(
                     df_zobrazit,
                     key=table_key,
-                    selection_default={"selection": {"rows": st.session_state.admin_selected_rows}},
+                    selection_default={"selection": {"rows": st.session_state[f"{lang}_admin_selected_rows"]}},
                     on_select="rerun",
                     selection_mode="multi-row",
-                    column_config={
-                        "Upravit": st.column_config.ButtonColumn(
-                            "Upravit",
-                            help="Upravit kartičku",
-                            width="small",
-                            pinned=True,
-                            on_click=on_admin_edit_click,
-                            key="btn_admin_edit"
-                        ),
-                        "Smazat": st.column_config.ButtonColumn(
-                            "Smazat",
-                            help="Smazat kartičku",
-                            width="small",
-                            pinned=True,
-                            on_click=on_admin_delete_click,
-                            key="btn_admin_delete"
-                        ),
-                        "Lekce": st.column_config.TextColumn("Lekce", width="small"),
-                        "Latina": st.column_config.TextColumn("Latina", width="medium"),
-                        "Čeština": st.column_config.TextColumn("Čeština", width="medium"),
-                        "Slovní druh": st.column_config.TextColumn("Slovní druh", width="medium"),
-                        "konj./dekl.": st.column_config.TextColumn("konj./dekl.", width="small"),
-                    },
+                    column_config=col_config,
                     hide_index=True,
                     width="stretch",
-                    alt="Přehled a správa latinských kartiček"
+                    alt=cfg["alt_admin_slovnik"],
                 )
 
         with tab_zadosti:
-            # Filtr stavu žádostí
             filtr_stav = st.segmented_control(
                 "Filtr stavu:",
                 options=["Všechny", "Čekající", "Vyřízené", "Zamítnuté"],
                 default="Všechny",
-                key="filtr_stav_zadosti",
+                key=f"{lang}_filtr_stav_zadosti",
             )
 
-            # Filtrace žádostí podle stavu
             stav_map = {"Čekající": "cekajici", "Vyřízené": "vyrizeno", "Zamítnuté": "zamitnuto"}
             if filtr_stav and filtr_stav != "Všechny":
                 zobrazene_zadosti = [z for z in zadosti if z.get("stav") == stav_map.get(filtr_stav)]
@@ -2058,12 +2370,17 @@ def stranka_slovnik():
                 for z in zobrazene_zadosti:
                     stav = z.get("stav", "cekajici")
                     stav_ikona = {"cekajici": "⏳", "vyrizeno": "✅", "zamitnuto": "❌"}.get(stav, "❓")
-                    stav_text = {"cekajici": "Čekající", "vyrizeno": "Vyřízeno", "zamitnuto": "Zamítnuto"}.get(stav, stav)
+                    stav_text = {"cekajici": "Čekající", "vyrizeno": "Vyřízeno", "zamitnuto": "Zamítnuto"}.get(
+                        stav, stav
+                    )
+                    zadane_slovo = z.get("slovo") or z.get("latina", "?")
 
                     with st.container(border=True):
                         col_info, col_akce = st.columns([3, 1])
                         with col_info:
-                            st.markdown(f"**{z.get('latina', '?')}**" + (f" — {z['cestina']}" if z.get("cestina") else ""))
+                            st.markdown(
+                                f"**{zadane_slovo}**" + (f" — {z['cestina']}" if z.get("cestina") else "")
+                            )
                             detaily = []
                             if z.get("lekce"):
                                 detaily.append(f"Lekce: {z['lekce']}")
@@ -2075,86 +2392,135 @@ def stranka_slovnik():
                         with col_akce:
                             zadost_id = z.get("id", "")
                             if stav == "cekajici":
-                                if st.button("Rychle přidat", icon=":material/rocket_launch:", key=f"btn_rychle_{zadost_id}", width="stretch"):
-                                    # Automatická analýza a přidání
-                                    lat = z.get("latina", "").strip()
+                                if st.button(
+                                    "Rychle přidat",
+                                    icon=":material/rocket_launch:",
+                                    key=f"{lang}_btn_rychle_{zadost_id}",
+                                    width="stretch",
+                                ):
+                                    slovo_val = str(zadane_slovo).strip()
                                     ces = z.get("cestina", "").strip()
                                     lek = z.get("lekce", "").strip() or "1"
-                                    druh, konj, dekl = analyzuj_slovicko(lat)
-                                    novy_zaznam = pd.DataFrame([{
-                                        "Lekce": lek,
-                                        "Latina": lat,
-                                        "Čeština": ces if ces else lat,
-                                        "Slovní druh": druh,
-                                        "Konjugace": konj if druh == "Sloveso" else "",
-                                        "Deklinace": dekl if druh in ["Podstatné jméno", "Přídavné jméno"] else ""
-                                    }])
-                                    df_nove = pd.concat([df, novy_zaznam], ignore_index=True)
-                                    if uloz_data(df_nove):
-                                        zmen_stav_zadosti(zadost_id, "vyrizeno")
-                                        st.session_state["admin_zprava"] = f"Slovíčko \u201e{lat}\u201c bylo přidáno do lekce {lek} a žádost označena jako vyřízená."
+                                    if ma_gramatiku:
+                                        druh, konj, dekl = analyzuj_slovicko(slovo_val)
+                                        novy_dict = {
+                                            "Lekce": lek,
+                                            col_cizi: slovo_val,
+                                            "Čeština": ces if ces else slovo_val,
+                                            "Slovní druh": druh,
+                                            "Konjugace": konj if druh == "Sloveso" else "",
+                                            "Deklinace": dekl if druh in ["Podstatné jméno", "Přídavné jméno"] else "",
+                                        }
+                                    else:
+                                        novy_dict = {
+                                            "Lekce": lek,
+                                            col_cizi: slovo_val,
+                                            "Čeština": ces if ces else slovo_val,
+                                            "Slovní druh": "",
+                                            "Rod": "",
+                                        }
+                                    novy_zaznam = pd.DataFrame([novy_dict])
+                                    df_nove = pd.concat([df_lang, novy_zaznam], ignore_index=True)
+                                    if uloz_data(df_nove, lang=lang):
+                                        zmen_stav_zadosti(zadost_id, "vyrizeno", lang=lang)
+                                        st.session_state[f"{lang}_admin_zprava"] = (
+                                            f"Slovíčko \u201e{slovo_val}\u201c bylo přidáno do lekce {lek} a žádost označena jako vyřízená."
+                                        )
                                         st.rerun()
 
-                                if st.button("Upravit a přidat", icon=":material/edit:", key=f"btn_upravit_{zadost_id}", width="stretch"):
-                                    # Předvyplnit dialog pro přidání slova
-                                    st.session_state.pridat_slovo_aktivni = True
-                                    st.session_state["dlg_add_latina"] = z.get("latina", "")
-                                    st.session_state["dlg_add_cestina"] = z.get("cestina", "")
+                                if st.button(
+                                    "Upravit a přidat",
+                                    icon=":material/edit:",
+                                    key=f"{lang}_btn_upravit_{zadost_id}",
+                                    width="stretch",
+                                ):
+                                    st.session_state[f"{lang}_pridat_slovo_aktivni"] = True
+                                    st.session_state[f"{lang}_dlg_add_slovo"] = zadane_slovo
+                                    st.session_state[f"{lang}_dlg_add_cestina"] = z.get("cestina", "")
                                     if z.get("lekce"):
-                                        st.session_state["dlg_add_nova_lekce"] = z.get("lekce", "")
-                                    st.session_state["schvalovana_zadost_id"] = zadost_id
+                                        st.session_state[f"{lang}_dlg_add_nova_lekce"] = z.get("lekce", "")
+                                    st.session_state[f"{lang}_schvalovana_zadost_id"] = zadost_id
                                     st.rerun()
 
-                                if st.button("Zamítnout", icon=":material/close:", key=f"btn_zamitnout_{zadost_id}", width="stretch"):
-                                    zmen_stav_zadosti(zadost_id, "zamitnuto")
-                                    st.session_state["admin_zprava_zadost"] = f"Žádost o \u201e{z.get('latina', '?')}\u201c byla zamítnuta."
+                                if st.button(
+                                    "Zamítnout",
+                                    icon=":material/close:",
+                                    key=f"{lang}_btn_zamitnout_{zadost_id}",
+                                    width="stretch",
+                                ):
+                                    zmen_stav_zadosti(zadost_id, "zamitnuto", lang=lang)
+                                    st.session_state[f"{lang}_admin_zprava_zadost"] = (
+                                        f"Žádost o \u201e{zadane_slovo}\u201c byla zamítnuta."
+                                    )
                                     st.rerun()
 
-                            if st.button("Smazat", icon=":material/delete:", key=f"btn_smaz_zadost_{zadost_id}", width="stretch"):
-                                smaz_zadost(zadost_id)
-                                st.session_state["admin_zprava_zadost"] = f"Žádost o \u201e{z.get('latina', '?')}\u201c byla smazána."
+                            if st.button(
+                                "Smazat",
+                                icon=":material/delete:",
+                                key=f"{lang}_btn_smaz_zadost_{zadost_id}",
+                                width="stretch",
+                            ):
+                                smaz_zadost(zadost_id, lang=lang)
+                                st.session_state[f"{lang}_admin_zprava_zadost"] = (
+                                    f"Žádost o \u201e{zadane_slovo}\u201c byla smazána."
+                                )
                                 st.rerun()
 
         # Otevření příslušného modálního dialogu
-        if st.session_state.get("pridat_slovo_aktivni"):
-            dialog_pridat_slovo(df)
-        elif st.session_state.get("import_csv_aktivni"):
-            dialog_import_csv(df)
-        elif st.session_state.get("edit_row_idx") is not None:
-            cr = st.session_state.edit_row_idx
+        if st.session_state.get(f"{lang}_pridat_slovo_aktivni"):
+            dialog_pridat_slovo(lang, df_lang)
+        elif st.session_state.get(f"{lang}_import_csv_aktivni"):
+            dialog_import_csv(lang, df_lang)
+        elif st.session_state.get(f"{lang}_edit_row_idx") is not None:
+            cr = st.session_state[f"{lang}_edit_row_idx"]
             if 0 <= cr < len(df_filtered):
-                dialog_upravit_slovo(df_filtered.index[cr], df)
+                dialog_upravit_slovo(lang, df_filtered.index[cr], df_lang)
             else:
-                st.session_state.edit_row_idx = None
-        elif st.session_state.get("delete_row_idx") is not None:
-            cr = st.session_state.delete_row_idx
+                st.session_state[f"{lang}_edit_row_idx"] = None
+        elif st.session_state.get(f"{lang}_delete_row_idx") is not None:
+            cr = st.session_state[f"{lang}_delete_row_idx"]
             if 0 <= cr < len(df_filtered):
-                dialog_smazat_slovo(df_filtered.index[cr], df)
+                dialog_smazat_slovo(lang, df_filtered.index[cr], df_lang)
             else:
-                st.session_state.delete_row_idx = None
-        elif st.session_state.get("bulk_delete_active"):
+                st.session_state[f"{lang}_delete_row_idx"] = None
+        elif st.session_state.get(f"{lang}_bulk_delete_active"):
             sel_indices = [df_filtered.index[r] for r in selected_rows if r < len(df_filtered)]
             if sel_indices:
-                dialog_hromadne_smazani(sel_indices, df)
+                dialog_hromadne_smazani(lang, sel_indices, df_lang)
             else:
-                st.session_state.bulk_delete_active = False
+                st.session_state[f"{lang}_bulk_delete_active"] = False
+
 
 # ==============================================================================
 # STRÁNKA 4: PŘIHLÁŠENÍ SPRÁVCE
 # ==============================================================================
 def stranka_prihlaseni():
     zobraz_sidebar_admin_status()
-    st.sidebar.metric("Celkem kartiček v databázi", len(df))
-    st.sidebar.metric("Počet aktivních lekcí", len(set(df['Lekce']) - {''}))
+    st.sidebar.header("Statistiky databáze")
+    for lang_kod, cfg in JAZYKY.items():
+        try:
+            df_l = nacti_data(lang_kod)
+            pocet_karet = len(df_l)
+            pocet_lekci = len(set(df_l["Lekce"]) - {""})
+        except FileNotFoundError:
+            pocet_karet = 0
+            pocet_lekci = 0
+        st.sidebar.metric(f"Kartičky – {cfg['nazev']}", pocet_karet)
+        st.sidebar.metric(f"Aktivní lekce – {cfg['nazev']}", pocet_lekci)
 
     admin_heslo = nacti_admin_heslo()
 
     if not st.session_state.admin_prihlasen:
         st.title("🔐 Přihlášení správce")
-        st.write("Pro správu slovníku (přidávání, úpravy a mazání kartiček) a publikování balíčků do veřejné knihovny zadejte administrátorské heslo.")
+        st.write(
+            "Pro správu slovníků (přidávání, úpravy a mazání kartiček) a publikování balíčků do veřejné knihovny zadejte administrátorské heslo."
+        )
 
         if not admin_heslo:
-            st.warning("⚠️ Administrátorské heslo není nastaveno v proměnných prostředí ani v souboru `.env`.", icon=":material/warning:")
+            st.warning(
+                "⚠️ Administrátorské heslo není nastaveno v proměnných prostředí ani v souboru `.env`.",
+                icon=":material/warning:",
+            )
             st.info(
                 "Pro nastavení hesla zadejte do souboru `.env`:\n\n"
                 "```bash\nADMIN_PASSWORD=vase_tajne_heslo\n```\n\n"
@@ -2177,20 +2543,21 @@ def stranka_prihlaseni():
     else:
         st.title("🛡️ Správa přihlášení")
         st.success("Aktuálně jste přihlášen jako správce systému.", icon=":material/verified_user:")
-        
+
         st.markdown(
             """
-            Jako přihlášený správce máte k dispozici následující oprávnění:
+            Jako přihlášený správce máte k dispozici následující oprávnění pro oba jazyky (**Latina** i **Řečtina**):
             - **Generátor kartiček:** Možnost publikovat vytvořené balíčky do veřejné knihovny.
             - **Knihovna kartiček:** Možnost mazat uložené balíčky.
-            - **Slovník:** Přidávání nových slovíček, úprava existujících kartiček a hromadné mazání.
+            - **Slovník:** Přidávání nových slovíček, úprava existujících kartiček, CSV import a vyřizování žádostí o slova.
             """
         )
-        
+
         st.markdown("---")
         if st.button("Odhlásit se ze systému", icon=":material/logout:", type="secondary", key="btn_logout_page"):
             st.session_state.admin_prihlasen = False
-            st.session_state.admin_selected_rows = []
+            for lang_kod in JAZYKY:
+                st.session_state[f"{lang_kod}_admin_selected_rows"] = []
             st.toast("Byl jste odhlášen.", icon="👋")
             st.rerun()
 
@@ -2231,7 +2598,8 @@ def stranka_navod():
 
     st.info(
         "💡 **Co je soubor `.apkg`?**\n\n"
-        "Jde o standardní balíček kartiček Anki. Po vygenerování v [Generátoru kartiček](generator) "
+        "Jde o standardní balíček kartiček Anki. Po vygenerování v Generátoru kartiček "
+        "([Latina](latina-generator) / [Řečtina](rectina-generator)) "
         "nebo stažení z [Knihovny kartiček](knihovna) získáte soubor s příponou `.apkg`, "
         "který jednoduše otevřete ve své aplikaci Anki.",
         icon=":material/info:",
@@ -2293,13 +2661,13 @@ def stranka_navod():
             """
             1. **Nainstalujte si AnkiDroid** z [Obchodu Google Play](https://play.google.com/store/apps/details?id=com.ichi2.anki) a aplikaci alespoň jednou spusťte.
             2. **Stáhněte si balíček:**
-               - V této aplikaci přejděte na [Generátor kartiček](generator) nebo do [Knihovny kartiček](knihovna).
+               - V této aplikaci přejděte na Generátor kartiček ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo do [Knihovny kartiček](knihovna).
                - Vyberte si lekce nebo existující balíček a klepněte na tlačítko pro stažení balíčku (`.apkg`).
             3. **Otevřete a naimportujte soubor:**
                - **Způsob A (nejrychlejší):** Stáhněte lištu oznámení v telefonu a klepněte na oznámení o dokončeném stažení souboru. Telefon vám nabídne aplikaci pro otevření – vyberte **AnkiDroid**. Import proběhne okamžitě.
                - **Způsob B (přes správce souborů):** Otevřete aplikaci *Správce souborů* (nebo *Stažené soubory / Downloads*), najděte soubor s příponou `.apkg` a klepněte na něj.
                - **Způsob C (přímo v AnkiDroidu):** Spusťte AnkiDroid, klepněte na tři tečky v pravém horním rohu (nebo na modré tlačítko `+` vpravo dole) -> zvolte **Importovat** -> vyhledejte stažený soubor ve složce *Download*.
-            4. **Hotovo!** Na hlavní obrazovce AnkiDroidu uvidíte nový balíček latinských kartiček připravený k procvičování.
+            4. **Hotovo!** Na hlavní obrazovce AnkiDroidu uvidíte nový balíček kartiček připravený k procvičování.
             """
         )
         st.link_button(
@@ -2317,7 +2685,7 @@ def stranka_navod():
 
             #### Možnost 1: Oficiální aplikace AnkiMobile (App Store)
             1. Nainstalujte si aplikaci **AnkiMobile Flashcards** z [App Store](https://apps.apple.com/app/ankimobile-flashcards/id373493387).
-            2. V prohlížeči Safari na iPhonu si stáhněte balíček `.apkg` z [Generátoru](generator) nebo [Knihovny](knihovna).
+            2. V prohlížeči Safari na iPhonu si stáhněte balíček `.apkg` z Generátoru ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo [Knihovny](knihovna).
             3. V Safari klepněte v adresním řádku na ikonu stahování (modrý kroužek se šipkou dolů) a klepněte na stažený soubor `.apkg`.
             4. Klepněte na ikonu **Sdílení** (čtvereček se šipkou nahoru) a v řádku aplikací zvolte **Anki** (případně *Otevřít v aplikaci AnkiMobile*).
             5. Balíček se automaticky přidá do vaší sbírky.
@@ -2357,7 +2725,7 @@ def stranka_navod():
                - Přejděte na oficiální web [apps.ankiweb.net](https://apps.ankiweb.net/) a stáhněte si verzi pro svůj systém (Windows, macOS nebo Linux).
                - Dokončete standardní instalaci.
             2. **Stáhněte balíček:**
-               - Zde v [Generátoru kartiček](generator) nebo [Knihovně kartiček](knihovna) klikněte na stažení vybraného balíčku.
+               - Zde v Generátoru kartiček ([Latina](latina-generator) / [Řečtina](rectina-generator)) nebo [Knihovně kartiček](knihovna) klikněte na stažení vybraného balíčku.
             3. **Importujte do Anki:**
                - **Způsob A (nejjednodušší):** Dvakrát klikněte na stažený soubor `.apkg` ve složce *Stažené soubory*. Program Anki se sám otevře a zobrazí zprávu: *Import dokončen*.
                - **Způsob B (z menu programu):** Spusťte Anki -> v horní liště zvolte **Soubor (File)** -> **Importovat... (Import...)** (nebo klávesová zkratka `Ctrl + I` na Windows či `Cmd + I` na Macu) -> vyberte soubor `.apkg`.
@@ -2461,45 +2829,79 @@ def stranka_o_projektu():
 # ==============================================================================
 # HORNÍ MENU BAR (NAVIGACE)
 # ==============================================================================
-stranky = [
-    st.Page(
-        stranka_generator,
-        title="Generátor kartiček",
-        icon=":material/style:",
-        url_path="generator",
-        default=True,
-    ),
-    st.Page(
-        stranka_knihovna,
-        title="Knihovna kartiček",
-        icon=":material/local_library:",
-        url_path="knihovna",
-    ),
-    st.Page(
-        stranka_slovnik,
-        title="Slovník",
-        icon=":material/menu_book:",
-        url_path="slovnik",
-    ),
-    st.Page(
-        stranka_navod,
-        title="Jak používat kartičky",
-        icon=":material/help:",
-        url_path="navod",
-    ),
-    st.Page(
-        stranka_o_projektu,
-        title="O projektu",
-        icon=":material/info:",
-        url_path="o-projektu",
-    ),
-    st.Page(
-        stranka_prihlaseni,
-        title="Odhlásit se" if st.session_state.admin_prihlasen else "Přihlásit se",
-        icon=":material/verified_user:" if st.session_state.admin_prihlasen else ":material/login:",
-        url_path="prihlaseni",
-    ),
-]
+def stranka_latina_generator():
+    stranka_generator("latina")
+
+
+def stranka_latina_slovnik():
+    stranka_slovnik("latina")
+
+
+def stranka_rectina_generator():
+    stranka_generator("rectina")
+
+
+def stranka_rectina_slovnik():
+    stranka_slovnik("rectina")
+
+
+stranky = {
+    "Latina": [
+        st.Page(
+            stranka_latina_generator,
+            title="Generátor kartiček",
+            icon=":material/style:",
+            url_path="latina-generator",
+            default=True,
+        ),
+        st.Page(
+            stranka_latina_slovnik,
+            title="Slovník",
+            icon=":material/menu_book:",
+            url_path="latina-slovnik",
+        ),
+    ],
+    "Řečtina": [
+        st.Page(
+            stranka_rectina_generator,
+            title="Generátor kartiček",
+            icon=":material/style:",
+            url_path="rectina-generator",
+        ),
+        st.Page(
+            stranka_rectina_slovnik,
+            title="Slovník",
+            icon=":material/menu_book:",
+            url_path="rectina-slovnik",
+        ),
+    ],
+    "": [
+        st.Page(
+            stranka_knihovna,
+            title="Knihovna kartiček",
+            icon=":material/local_library:",
+            url_path="knihovna",
+        ),
+        st.Page(
+            stranka_navod,
+            title="Jak používat kartičky",
+            icon=":material/help:",
+            url_path="navod",
+        ),
+        st.Page(
+            stranka_o_projektu,
+            title="O projektu",
+            icon=":material/info:",
+            url_path="o-projektu",
+        ),
+        st.Page(
+            stranka_prihlaseni,
+            title="Odhlásit se" if st.session_state.admin_prihlasen else "Přihlásit se",
+            icon=":material/verified_user:" if st.session_state.admin_prihlasen else ":material/login:",
+            url_path="prihlaseni",
+        ),
+    ],
+}
 
 pg = st.navigation(stranky, position="top")
 pg.run()
