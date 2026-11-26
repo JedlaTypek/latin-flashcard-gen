@@ -1,0 +1,1078 @@
+[
+  {
+    "id": "pkg_1793296783",
+    "nazev": "Lat 1-3 lekce",
+    "popis": "Všechny podstatná jména 1. a 2. deklinace, přídavná jména, zájmena, slovesa 1. a 2. konjugace a nepravidelná slovesa. Kartičky jsou oboustrané - z latiny do češtiny i z češtiny do latiny.",
+    "datum": "29. 10. 2026 17:59",
+    "pocet_slovicek": 177,
+    "pocet_karticek": 354,
+    "smer_lat_ces": true,
+    "smer_ces_lat": true,
+    "soubor": "data/balicky/Lat_1-3_lekce_pkg_1793296783.apkg",
+    "nazev_souboru": "Lat_1-3_lekce.apkg",
+    "karticky": [
+      {
+        "Lekce": "1",
+        "Latina": "altus, a, um",
+        "Čeština": "vysoký, hluboký",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "amicus, i, m",
+        "Čeština": "přítel",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "aqua, ae, f",
+        "Čeština": "voda",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "benedictus, a, um",
+        "Čeština": "požehnaný, blahořečený",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "caecus, a, um",
+        "Čeština": "slepý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "caelum, i, n",
+        "Čeština": "nebe, nebesa, obloha, nebeská klenba",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "caeli, orum, m (pl.)",
+        "Čeština": "nebe, nebesa, obloha, nebeská klenba (pl.)",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "colloquium, ii, n",
+        "Čeština": "rozmluva, rozhovor",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "cotidianus /quottidianus, a, um",
+        "Čeština": "každodenní, denní, všední",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "debeo, ere, debui, debitum",
+        "Čeština": "jsem dlužen, povinen, zavázán, musím",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "debitum, i, n",
+        "Čeština": "dluh; daň, závazek; vina",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "Deus, i, m",
+        "Čeština": "Bůh",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "do, dare, dedi, datum",
+        "Čeština": "dávám; vynakládám, uděluji, věnuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "dominus, i, m",
+        "Čeština": "pán, hospodář, majitel, vládce; Hospodin",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "exemplum, i, n",
+        "Čeština": "příklad, vzor, ukázka, doklad, obraz",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "exspecto, are, avi, atum",
+        "Čeština": "očekávám, čekám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "falsus, a, um",
+        "Čeština": "oklamaný; klamný, nepravdivý, lživý, falešný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "filius, ii, m",
+        "Čeština": "syn",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "fio, fieri, factus sum",
+        "Čeština": "stávám se, vznikám, jsem; jsem činěn (pas. ke slovesu facio)",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "gloria, ae, f",
+        "Čeština": "sláva, čest",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "gratia, ae, f",
+        "Čeština": "vděk, dík, půvab; milost",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "iniustus, a, um",
+        "Čeština": "nespravedlivý, bezprávný, protiprávní",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "libero, are, avi, atum",
+        "Čeština": "osvobozuji, zprošťuji, zbavuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "lingua, ae, f",
+        "Čeština": "jazyk, řeč",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "littera, ae, f",
+        "Čeština": "písmeno; písmo, umění psát",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "longus, a, um",
+        "Čeština": "dlouhý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "magister, stri, m",
+        "Čeština": "představený, správce, vůdce; učitel, rádce; mistr",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "magnus, a, um",
+        "Čeština": "velký, veliký; mocný, vznešený",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "malum, i, n",
+        "Čeština": "zlo, špatnost, neřest",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "malus, a, um",
+        "Čeština": "zlý, špatný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "memoria, ae, f",
+        "Čeština": "paměť; památka, vzpomínka",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "misereor, eri, miseritus / misertus sum alicuius",
+        "Čeština": "smilovávám se, slitovávám se nad někým",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "natura, ae, f",
+        "Čeština": "narození, rod; příroda; přirozenost, povaha, podstata",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "neuter, tra, um",
+        "Čeština": "žádný z obou, ani jeden z obou; střední",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "nos(gen. nostri / nostrum. dat./abl. vobis)",
+        "Čeština": "my",
+        "Slovní druh": "Zájmeno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "oro, are, avi, atum",
+        "Čeština": "mluvím, řečním; žádám, prosím; modlím se",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "philosophus, i, m",
+        "Čeština": "filozof, milovník moudrosti",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "plenus, a, um",
+        "Čeština": "plný, naplněný, úplný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "poena, ae, f",
+        "Čeština": "trest, odplata, pokuta",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "poeta, ae, m",
+        "Čeština": "básník",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "primus, a, um",
+        "Čeština": "první, přední, nejpřednější",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "proprius, a, um",
+        "Čeština": "vlastní",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "qui, quae, quod",
+        "Čeština": "který, jenž, kdo; a ten, a on",
+        "Slovní druh": "Zájmeno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "regnum, i, n",
+        "Čeština": "království; řízení, nejvyšší moc, vláda",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "rosa, ae, f",
+        "Čeština": "růže",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "sacer, cra, um",
+        "Čeština": "posvátný, posvěcený, svatý; prokletý (= božstvu propadlý)",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "sanctifico, are, avi, atum",
+        "Čeština": "činím svatým, posvěcuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "sanctus, a, um",
+        "Čeština": "svatý, posvěcený, zasvěcený, nedotknutelný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "sapientia, ae, f",
+        "Čeština": "moudrost",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "studium, ii, n",
+        "Čeština": "snaha, horlivost, píle; náklonnost, zaujatost, stranictví; věda, studium",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "sum, esse, fui, -, futurus",
+        "Čeština": "jsem, existuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "suus, a, um",
+        "Čeština": "svůj",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "terra, ae, f",
+        "Čeština": "země; hlína, půda; kraj, krajina",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "totus, a, um",
+        "Čeština": "celý, všechen",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "tu",
+        "Čeština": "ty",
+        "Slovní druh": "Zájmeno"
+      },
+      {
+        "Lekce": "1",
+        "Latina": "vetus, eris",
+        "Čeština": "starý, starobylý, starodávný, dávný, dřívější",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "agricola, ae, m",
+        "Čeština": "rolník, zemědělec, sedlák",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "amica, ae, f",
+        "Čeština": "přítelkyně",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "ancilla, ae, f",
+        "Čeština": "služka, služebnice",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "anima, ae, f",
+        "Čeština": "duše, duch, život; vánek, dech",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "appello, are, avi, atum",
+        "Čeština": "nazývám, jmenuji, oslovuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "causa, ae, f",
+        "Čeština": "příčina, důvod, podnět; věc, právní záležitost",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "clarus, a, um",
+        "Čeština": "jasný, světlý, zřejmý, slavný, proslulý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "deleo, ere, evi, etum",
+        "Čeština": "ničím, hubím, vyhlazuji, zahlazuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "dignus, a, um",
+        "Čeština": "důstojný, hodný, přiměřený, zasloužený",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "ecclesia, ae, f",
+        "Čeština": "shromáždění, sněm; církevní shromáždění, křesťanská obec; církev; kostel",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "educo, are, avi, atum",
+        "Čeština": "vychovávám, pěstuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "ego",
+        "Čeština": "já",
+        "Slovní druh": "Zájmeno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "exsulto, are, avi, atum",
+        "Čeština": "vyskakuji, jásám, plesám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "fabula, ae, f",
+        "Čeština": "vypravování, pověst, pohádka, bajka, smyšlenka",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "filia, ae, f",
+        "Čeština": "dcera \u0001",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "forma, ae, f",
+        "Čeština": "tvar, vzhled, podoba, forma",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "fortuna, ae, f",
+        "Čeština": "osud, úděl, náhoda, štěstí",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "fortunae, arum, f",
+        "Čeština": "statky, majetek, bohatství",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "impero, are, avi, atum",
+        "Čeština": "rozkazuji, poroučím, velím, vládnu",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "iustitia, ae, f",
+        "Čeština": "spravedlnost",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "laboro, are, avi, atum",
+        "Čeština": "pracuji, namáhám se, usiluji, přičiňuji se, strádám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "laetitia, ae, f",
+        "Čeština": "radost, veselí, veselost",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "laudo, are, avi, atum",
+        "Čeština": "chválím",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "magistra, ae, f",
+        "Čeština": "představená, vůdkyně; učitelka",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "modus, i, m",
+        "Čeština": "míra; mez, omezení, způsob; takt. melodie, nápěv",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "narro, are, avi, atum",
+        "Čeština": "vypravuji, vykládám, líčím, povídám, pravím",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "nomino, are, avi, atum",
+        "Čeština": "jmenuji, nazývám jménem; jmenuji někoho něčím",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "numerus, i, m",
+        "Čeština": "počet, číslo, množství",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "nuntio, are, avi, atum",
+        "Čeština": "oznamuji, ohlašuji, zvěstuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "orno, are, avi, atum",
+        "Čeština": "strojím, opatřuji; zbrojím; zdobím, krášlím",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "paenitentia / poenitentia, ae, f",
+        "Čeština": "lítost, pokání, kajícnost; polepšení, napravení",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "patria, ae, f",
+        "Čeština": "otčina, vlast, rodná země; domovina, bydliště",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "patriarcha, ae, m",
+        "Čeština": "praotec; patriarcha",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "persona, ae, f",
+        "Čeština": "osoba, povaha; maska (divadelní)",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "pius, a, um",
+        "Čeština": "čistý; zbožný, oddaný, vděčný; laskavý, dobrotivý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "porto, are, avi, atum",
+        "Čeština": "nesu, nosím; vezu, vozím; dopravuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "principium, ii, n",
+        "Čeština": "počátek, původ, vznik; prvek; základ, zásada, pravidlo, princip",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "propheta, ae, m",
+        "Čeština": "prorok",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "prudentia, ae, f",
+        "Čeština": "předvídavost, prozíravost, opatrnost, moudrost",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "puella, ae, f",
+        "Čeština": "dívka, děvče; dcera",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "regna, ae, f",
+        "Čeština": "královna",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "saeculum, i, n",
+        "Čeština": "věk, doba, století; lidský věk, pokolení, generace; časnost, světský stav, svět",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "secundus, a, um",
+        "Čeština": "druhý, následující; příznivý, šťastný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "servus, i, m",
+        "Čeština": "otrok, sluha, služebník",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "schola / scola, ae, f",
+        "Čeština": "volný čas věnovaný studiím; přednáška, rozprava; škola",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "silva, ae, f",
+        "Čeština": "les; houští; dřevo, keř, strom",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "spero, are, avi, atum",
+        "Čeština": "doufám, mám naději; očekávám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "stella, ae, f",
+        "Čeština": "hvězda",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "tenebrae, arum, f",
+        "Čeština": "tma, temnota",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "verbum, i, n",
+        "Čeština": "slovo, výrok; sloveso",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "video, ere, vidi, visum",
+        "Čeština": "vidím, hledím, dívám se; dbám, starám se",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "vigilo, are, avi, atum",
+        "Čeština": "bdím; jsem bdělý, ostražitý",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "vita, ae, f",
+        "Čeština": "život, žití",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "2",
+        "Latina": "voco, are, avi, atum",
+        "Čeština": "volám, povolávám, zvu; nazývám, jmenuji",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "aeternus, a, um",
+        "Čeština": "věčný, nesmrtelný, trvalý, nekonečný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "ager, agri, m",
+        "Čeština": "pole, role; pozemek",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "agnus, i, m",
+        "Čeština": "jehně, beránek",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "alienus, a, um",
+        "Čeština": "cizí, jinému patřící; jiný, nenáležitý, vzdálený",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "aptus, a, um",
+        "Čeština": "připojený, závislý; připravený, vhodný, způsobilý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "argumentum, i, n",
+        "Čeština": "důkaz, důvod; obsah",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "aridus, a, um",
+        "Čeština": "vyschlý, suchý, vyprahlý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "arma, orum, n",
+        "Čeština": "zbraně, zbroj; náčiní, nářadí",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "beatus, a, um",
+        "Čeština": "blažený, šťastný, blahoslavený, požehnaný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "bonus, a, um",
+        "Čeština": "dobrý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "brevis, e",
+        "Čeština": "krátký; úzký, těsný; stručný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "canticum, i, n",
+        "Čeština": "píseň, sólový zpěv; kantikum",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "canto, are, avi, atum",
+        "Čeština": "zpívám; hraji na něco; opěvuji, slavím, velebím",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "castra, orum, n",
+        "Čeština": "tábor, vojenské ležení",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "clamo, are, avi, atum",
+        "Čeština": "(hlasitě) volám, křičím",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "clemens, entis",
+        "Čeština": "mírný, klidný, laskavý, milostivý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "confiteor, eri, fessus sum",
+        "Čeština": "vyznávám, doznávám, přiznávám (se)",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "consilium, ii, n",
+        "Čeština": "rada, porada; záměr, úmysl",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "decalogus, i, m",
+        "Čeština": "desatero",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "desertum, i, n",
+        "Čeština": "poušť, opuštěné místo, pustina",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "dextera, ae, f",
+        "Čeština": "pravice",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "discipulus, i, m",
+        "Čeština": "žák, učedník; stoupenec, následovník",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "doceo, ere, docui, doctum",
+        "Čeština": "učím, poučuji, vyučuji, vykládám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "dominica, ae, f [dies]",
+        "Čeština": "den Páně, neděle",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "dulcis, e",
+        "Čeština": "sladký, chutný, lahodný; milý, drahý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "erro, are, avi, atum",
+        "Čeština": "bloudím, mýlím se; chybuji, hřeším",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "fleo, ere, evi, etum",
+        "Čeština": "pláču, naříkám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "ille, illa, illud",
+        "Čeština": "onen; on, ten; onen slavný, známý, proslulý",
+        "Slovní druh": "Zájmeno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "imperium, ii, n",
+        "Čeština": "rozkaz, nařízení, vláda, moc",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "insula, ae, f",
+        "Čeština": "ostrov",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "interpello, are, avi, atum",
+        "Čeština": "přerušuji, namítám, dotazuji se; zastávám se",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "interrogo, are, avi, atum",
+        "Čeština": "ptám se, dotazuji se, vyslýchám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "is, ea, id",
+        "Čeština": "ten, ta, to; on, ona, ono",
+        "Slovní druh": "Zájmeno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "iustus, a, um",
+        "Čeština": "spravedlivý; oprávněný, zasloužený, zákonitý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "lacrima, ae, f",
+        "Čeština": "slza",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "liber, bri, m",
+        "Čeština": "kniha; spis, dílo",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "mandatum, i, n",
+        "Čeština": "přikázání, příkaz, rozkaz; úkol, pověření, zmocnění",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "maneo, ere, mansi, -, mansurus",
+        "Čeština": "zůstávám, trvám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "minimus, a, um",
+        "Čeština": "nejmenší",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "misericordia, ae, f",
+        "Čeština": "milosrdenství",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "moneo, ere, monui, monitum",
+        "Čeština": "napomínám, varuji, kárám; upomínám, upozorňuji, připomínám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "multus, a, um",
+        "Čeština": "mnohý, četný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "mysterium, ii, n",
+        "Čeština": "tajemství",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "novus, a, um",
+        "Čeština": "nový, čerstvý; nebývalý, neobyčejný; nezvyklý, nezkušený",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "oculus, i, m",
+        "Čeština": "oko; zrak",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "omnipotens, entis",
+        "Čeština": "všemohoucí",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "omnis, e",
+        "Čeština": "všechen, každý; celý",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "paro, are, avi, atum",
+        "Čeština": "připravuji, strojím, chystám; zařizuji, zjednávám (si)",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "parvus, a, um",
+        "Čeština": "malý, skrovný, nepatrný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "peccatum, i, n",
+        "Čeština": "hřích, provinění, vina",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "pecco, are, avi, atum",
+        "Čeština": "hřeším, proviňuji se",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "populus, i, m",
+        "Čeština": "lid, dav; národ, lidstvo",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "praeceptum, i, n",
+        "Čeština": "příkaz, přikázání; rada, návod, poučení, pravidlo",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "precor, ari, atus sum",
+        "Čeština": "prosím, modlím se",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "puer, eri, m",
+        "Čeština": "chlapec, hoch, dítě; otrok, služebník",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "respondeo, ere, spondi, sponsum",
+        "Čeština": "odpovídám; souhlasím, shoduji se; zodpovídám se (před soudem)",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "scriptum, i, n",
+        "Čeština": "napsané, písmo; písemná práce, spis, kniha",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "se",
+        "Čeština": "sebe, se (zájm. Zvratné)",
+        "Slovní druh": "Zájmeno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "sedeo, ere, sedi, sessum",
+        "Čeština": "sedím; zasedám; nečinně sedím, prodlévám; pevně sedím, vězím, trvám",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "studeo, ere, ui, -",
+        "Čeština": "zabývám se něčím, snažím se o něco, studuji něco (s dat.)",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "suspiro, are, avi, atum",
+        "Čeština": "zhluboka dýchám; vzdychám, sténám, toužím",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "tertius, a, um",
+        "Čeština": "třetí",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "valeo, ere, ui, -, valiturus",
+        "Čeština": "jsem silný, mocný, schopen, zdráv",
+        "Slovní druh": "Sloveso"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "verus, a, um",
+        "Čeština": "pravý, pravdivý, opravdový, skutečný",
+        "Slovní druh": "Přídavné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "vir, i, m",
+        "Čeština": "muž; choť; manžel; hrdina, rek; člověk",
+        "Slovní druh": "Podstatné jméno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "vos",
+        "Čeština": "vy",
+        "Slovní druh": "Zájmeno"
+      },
+      {
+        "Lekce": "3",
+        "Latina": "habeo, ere, ui, itum",
+        "Čeština": "mám, držím v majetku, pokládám za něco, ovládám, konám, pořádám",
+        "Slovní druh": "Sloveso"
+      }
+    ]
+  }
+]

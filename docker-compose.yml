@@ -9,7 +9,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     volumes:
       # Volume je připojen výhradně na /app/data — kód aplikace se vždy aktualizuje z image
-      - flashcard_data:/app/data
+      - flashcards_data:/app/data
 
 volumes:
   flashcards_data:
