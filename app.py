@@ -1,8 +1,14 @@
 import os
+import io
+import re
+import html
 import hmac
 import json
 import time
 import uuid
+import sqlite3
+import tempfile
+import zipfile
 from datetime import datetime
 import pandas as pd
 import streamlit as st
@@ -873,6 +879,308 @@ def publikuj_balicek(
         return True, "Balíček byl úspěšně publikován do knihovny.", cesta_soubor
     return False, "Chyba při zápisu do databáze knihovny.", ""
 
+def _ocisti_anki_html(text: str) -> str:
+    """Odstraní HTML tagy a Anki značky ([sound:...]) z pole kartičky."""
+    if not text:
+        return ""
+    bez_zvuku = re.sub(r"\[sound:[^\]]+\]", "", text)
+    bez_tagu = re.sub(r"<[^>]+>", " ", bez_zvuku)
+    return re.sub(r"\s+", " ", html.unescape(bez_tagu)).strip()
+
+
+def analyzuj_apkg_soubor(file_bytes: bytes) -> dict:
+    """
+    Zkontroluje, zda jde o platný .apkg (ZIP) archiv, a pokusí se z jeho SQLite databáze
+    vyčíst název balíčku, počet karet, počet poznámek a náhled kartiček.
+    """
+    vysledek = {
+        "platny": False,
+        "nazev_balicku": "",
+        "pocet_slovicek": 0,
+        "pocet_karticek": 0,
+        "karticky": [],
+        "zstd_format": False,
+    }
+
+    if not file_bytes or not zipfile.is_zipfile(io.BytesIO(file_bytes)):
+        return vysledek
+
+    tmp_db_path = None
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as zf:
+            names = zf.namelist()
+            if "collection.anki21b" in names:
+                vysledek["zstd_format"] = True
+
+            db_member = None
+            for candidate in ("collection.anki21", "collection.anki2"):
+                if candidate in names:
+                    db_member = candidate
+                    break
+
+            vysledek["platny"] = True
+            if not db_member:
+                return vysledek
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".sqlite") as tmp_f:
+                tmp_f.write(zf.read(db_member))
+                tmp_db_path = tmp_f.name
+
+        conn = sqlite3.connect(tmp_db_path)
+        try:
+            cur = conn.cursor()
+
+            # Název balíčku z tabulky col (JSON sloupec decks)
+            try:
+                cur.execute("SELECT decks FROM col LIMIT 1")
+                row_col = cur.fetchone()
+                if row_col and row_col[0]:
+                    decks_json = json.loads(row_col[0])
+                    for d_info in decks_json.values():
+                        d_name = str(d_info.get("name", "")).strip()
+                        if d_name and d_name.lower() != "default":
+                            vysledek["nazev_balicku"] = d_name
+                            break
+            except Exception:
+                pass
+
+            # Počet karet a poznámek + náhled prvních 500 záznamů
+            cur.execute("SELECT COUNT(*) FROM cards")
+            cards_count = int(cur.fetchone()[0] or 0)
+
+            cur.execute("SELECT COUNT(*) FROM notes")
+            notes_count = int(cur.fetchone()[0] or 0)
+
+            cur.execute("SELECT flds FROM notes LIMIT 500")
+            rows_notes = cur.fetchall()
+
+            # Detekce zástupného upozornění moderního Anki (.anki21b)
+            if (
+                notes_count == 1
+                and rows_notes
+                and "please update to the latest anki version" in str(rows_notes[0][0]).lower()
+            ):
+                vysledek["zstd_format"] = True
+                return vysledek
+
+            vysledek["pocet_karticek"] = cards_count
+            vysledek["pocet_slovicek"] = notes_count
+
+            nahled = []
+            for (flds_raw,) in rows_notes:
+                casti = [_ocisti_anki_html(p) for p in str(flds_raw or "").split("\x1f")]
+                casti = [c for c in casti if c]
+                if len(casti) >= 2:
+                    nahled.append({"predni": casti[0], "zadni": casti[1]})
+                elif len(casti) == 1:
+                    nahled.append({"predni": casti[0], "zadni": ""})
+            vysledek["karticky"] = nahled
+        finally:
+            conn.close()
+    except Exception:
+        pass
+    finally:
+        if tmp_db_path and os.path.exists(tmp_db_path):
+            try:
+                os.remove(tmp_db_path)
+            except Exception:
+                pass
+
+    return vysledek
+
+
+def uloz_nahrany_apkg_do_knihovny(
+    file_bytes: bytes,
+    puvodni_nazev_souboru: str,
+    nazev: str,
+    popis: str,
+    lang: str,
+    pocet_slovicek: int,
+    pocet_karticek: int,
+    surove_karticky: list | None = None,
+) -> tuple[bool, str]:
+    """Uloží nahraný .apkg soubor beze změny do data/balicky a zapíše ho do knihovna_balicku.json."""
+    cfg = JAZYKY.get(lang, JAZYKY["latina"])
+    col_cizi = cfg["sloupec"]
+
+    os.makedirs(BALICKY_DIR, exist_ok=True)
+    balicek_id = f"pkg_{int(time.time())}"
+    bezpecny_nazev = "".join(c for c in nazev if c.isalnum() or c in (" ", "_", "-")).strip()
+    if not bezpecny_nazev:
+        bezpecny_nazev = Path(puvodni_nazev_souboru).stem or "balicek"
+
+    interni_soubor = f"{bezpecny_nazev.replace(' ', '_')}_{balicek_id}.apkg"
+    cesta_soubor = os.path.join(BALICKY_DIR, interni_soubor)
+
+    try:
+        with open(cesta_soubor, "wb") as f:
+            f.write(file_bytes)
+    except Exception as e:
+        return False, f"Nepodařilo se uložit soubor balíčku: {e}"
+
+    karticky_list = []
+    for item in surove_karticky or []:
+        polozka = {
+            "Lekce": "",
+            col_cizi: str(item.get("predni", "")),
+            "Čeština": str(item.get("zadni", "")),
+            "Slovní druh": "",
+        }
+        if cfg["ma_gramatiku"]:
+            polozka["konj./dekl."] = ""
+        karticky_list.append(polozka)
+
+    zaznam = {
+        "id": balicek_id,
+        "jazyk": lang,
+        "nazev": nazev.strip(),
+        "popis": popis.strip(),
+        "datum": datetime.now().strftime("%d. %m. %Y %H:%M"),
+        "pocet_slovicek": int(pocet_slovicek),
+        "pocet_karticek": int(pocet_karticek),
+        "smer_lat_ces": True,
+        "smer_ces_lat": False,
+        "soubor": cesta_soubor,
+        "nazev_souboru": f"{bezpecny_nazev.replace(' ', '_')}.apkg",
+        "karticky": karticky_list,
+    }
+
+    knihovna = nacti_knihovnu()
+    knihovna.insert(0, zaznam)
+    if uloz_knihovnu(knihovna):
+        return True, f"Balíček \u201e{nazev.strip()}\u201c byl úspěšně nahrán do knihovny."
+    return False, "Chyba při zápisu do databáze knihovny."
+
+
+def reset_upload_apkg_state():
+    st.session_state["lib_upload_apkg_aktivni"] = False
+    for k in [
+        "lib_up_last_file_id",
+        "lib_up_uploader",
+        "lib_up_nazev",
+        "lib_up_jazyk",
+        "lib_up_popis",
+        "lib_up_pocet_slov",
+        "lib_up_pocet_karet",
+        "lib_up_karticky",
+        "lib_up_parse_info",
+    ]:
+        st.session_state.pop(k, None)
+
+
+@st.dialog("Nahrát .apkg soubor do knihovny", on_dismiss=reset_upload_apkg_state, width="medium")
+def dialog_nahrat_apkg():
+    st.write("Nahrajte hotový Anki balíček (`.apkg`) a vyplňte jeho název, jazyk a popis pro zobrazení v knihovně.")
+
+    uploaded_apkg = st.file_uploader(
+        "Soubor balíčku (.apkg) *",
+        type=["apkg"],
+        key="lib_up_uploader",
+    )
+
+    if uploaded_apkg is not None:
+        file_id = f"{uploaded_apkg.name}_{uploaded_apkg.size}"
+        if st.session_state.get("lib_up_last_file_id") != file_id:
+            info = analyzuj_apkg_soubor(uploaded_apkg.getvalue())
+            st.session_state["lib_up_last_file_id"] = file_id
+            st.session_state["lib_up_parse_info"] = info
+
+            vychozi_nazev = info["nazev_balicku"] or Path(uploaded_apkg.name).stem.replace("_", " ").strip()
+            st.session_state["lib_up_nazev"] = vychozi_nazev
+            st.session_state["lib_up_pocet_slov"] = info["pocet_slovicek"]
+            st.session_state["lib_up_pocet_karet"] = info["pocet_karticek"]
+            st.session_state["lib_up_karticky"] = info["karticky"]
+
+    parse_info = st.session_state.get("lib_up_parse_info")
+    if uploaded_apkg is not None and parse_info:
+        if not parse_info["platny"]:
+            st.error("Nahraný soubor není platný archiv .apkg.")
+        elif parse_info["zstd_format"] and parse_info["pocet_karticek"] == 0:
+            st.info(
+                "Balíček je v novějším komprimovaném formátu Anki (.anki21b) — počty slovíček a karet můžete doplnit ručně níže.",
+                icon=":material/info:",
+            )
+        elif parse_info["pocet_karticek"] > 0:
+            st.caption(
+                f"Ze souboru automaticky načteno: **{parse_info['pocet_slovicek']}** slovíček / poznámek, "
+                f"**{parse_info['pocet_karticek']}** karet."
+            )
+
+    jazyk_volby = {cfg["nazev"]: kod for kod, cfg in JAZYKY.items()}
+    vybrany_jazyk_nazev = st.segmented_control(
+        "Jazyk balíčku *",
+        options=list(jazyk_volby.keys()),
+        default=list(jazyk_volby.keys())[0],
+        key="lib_up_jazyk",
+    )
+
+    nazev = st.text_input(
+        "Název balíčku *",
+        placeholder="Např. Latina – Lekce 1 až 5",
+        key="lib_up_nazev",
+    )
+
+    popis = st.text_area(
+        "Popis balíčku (volitelný)",
+        placeholder="Např. Kompletní slovní zásoba k zápočtu včetně rodů a genitivů...",
+        key="lib_up_popis",
+    )
+
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        pocet_slov = st.number_input(
+            "Počet slovíček:",
+            min_value=0,
+            step=1,
+            key="lib_up_pocet_slov",
+        )
+    with col_p2:
+        pocet_karet = st.number_input(
+            "Počet karet v balíčku:",
+            min_value=0,
+            step=1,
+            key="lib_up_pocet_karet",
+        )
+
+    st.markdown("<small>* Označená pole jsou povinná.</small>", unsafe_allow_html=True)
+    with st.container(horizontal=True):
+        tlacitko_nahrat = st.button(
+            "Nahrát do knihovny",
+            type="primary",
+            icon=":material/upload:",
+            key="btn_lib_up_save",
+        )
+        tlacitko_zrusit = st.button("Zrušit", key="btn_lib_up_cancel")
+
+    if tlacitko_zrusit:
+        reset_upload_apkg_state()
+        st.rerun()
+
+    if tlacitko_nahrat:
+        if uploaded_apkg is None:
+            st.error("Nejprve vyberte soubor `.apkg`.")
+        elif parse_info and not parse_info["platny"]:
+            st.error("Vybraný soubor není platný balíček `.apkg`.")
+        elif not nazev.strip():
+            st.error("Vyplňte název balíčku.")
+        else:
+            vybrany_lang_kod = jazyk_volby.get(vybrany_jazyk_nazev or "", "latina")
+            ok, msg = uloz_nahrany_apkg_do_knihovny(
+                file_bytes=uploaded_apkg.getvalue(),
+                puvodni_nazev_souboru=uploaded_apkg.name,
+                nazev=nazev,
+                popis=popis,
+                lang=vybrany_lang_kod,
+                pocet_slovicek=int(pocet_slov),
+                pocet_karticek=int(pocet_karet),
+                surove_karticky=st.session_state.get("lib_up_karticky", []),
+            )
+            if ok:
+                st.session_state["lib_zprava"] = msg
+                reset_upload_apkg_state()
+                st.rerun()
+            else:
+                st.error(msg)
 
 def zobraz_sidebar_admin_status():
     """Zobrazí v postranním panelu informaci o přihlášení správce, pokud je aktivní."""
@@ -2087,6 +2395,22 @@ def stranka_knihovna():
     st.title("📚 Knihovna kartiček")
 
     zobraz_sidebar_admin_status()
+
+    if "lib_zprava" in st.session_state:
+        st.success(st.session_state.pop("lib_zprava"), icon=":material/check_circle:")
+
+    if st.session_state.admin_prihlasen:
+        if st.button(
+            "Nahrát .apkg soubor",
+            type="primary",
+            icon=":material/upload_file:",
+            key="btn_lib_upload_apkg",
+        ):
+            st.session_state["lib_upload_apkg_aktivni"] = True
+            st.rerun()
+
+        if st.session_state.get("lib_upload_apkg_aktivni", False):
+            dialog_nahrat_apkg()
 
     celkova_knihovna = nacti_knihovnu()
 
