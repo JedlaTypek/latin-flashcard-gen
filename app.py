@@ -3291,16 +3291,16 @@ def stranka_o_projektu():
     )
 
     st.markdown("""
-    ### 📚 K čemu aplikace slouží?
-    Tento nástroj vznikl pro usnadnění studia latiny a řečtiny tvorbou studijních kartiček (např. pro **AnkiWeb / AnkiMobile / AnkiDroid**). 
-    Slovíčka a jejich zpracování vycházejí z učebnice **Základy latinského jazyka pro posluchače teologie** od **Milana Šlesingera** a **Uvedení do novozákonní řečtiny** od **Josefa Bartoně**.
+### 📚 K čemu aplikace slouží?
+Tento nástroj vznikl pro usnadnění studia latiny a řečtiny tvorbou studijních kartiček (např. pro **AnkiWeb / AnkiMobile / AnkiDroid**). 
+Slovíčka a jejich zpracování vycházejí z učebnice **Základy latinského jazyka pro posluchače teologie** od **Milana Šlesingera** a **Uvedení do novozákonní řečtiny** od **Josefa Bartoně**.
 
 - 📖 **Učebnice ke stažení:** Pokud učebnici nemáte po ruce v tištěné podobě, její PDF verzi si můžete stáhnout například [zde v knihovně Libri Nostri](https://librinostri.catholica.cz/download/ZaklLatJPrPoThSl-OCRpcb.pdf). Učebnice **Uvedení do novozákonní řečtiny** od **Josefa Bartoně** bohužel není veřejně dostupná v elektronické podobě.
 
     ---
 
-    ### 🚀 Plány do budoucna
-    Doplnit všechny lekce obou učebnic, případně cvičení určené na naučení vzorů deklinací a konjugací.
+### 🚀 Plány do budoucna
+Doplnit všechny lekce obou učebnic, případně cvičení určené na naučení vzorů deklinací a konjugací.
     """)
 
     st.divider()
@@ -3309,14 +3309,14 @@ def stranka_o_projektu():
     with col1:
         st.markdown("""
         ### 💻 Open Source a podpora projektu
-        Tuto aplikaci programuji, spravuji a hostuji ve svém volném čase a **na vlastní náklady**. 
+Tuto aplikaci programuji, spravuji a hostuji ve svém volném čase a **na vlastní náklady**. 
         
 - **Projekt byl, je a vždy bude zcela zdarma pro všechny návštěvníky.**
 - Zdrojový kód je veřejně dostupný jako **open source** dostupný na [Githubu](https://github.com/JedlaTypek/latin-flashcard-gen/).
 
-        Pokud vám aplikace šetří čas při přípravě na zkoušky nebo při studiu jazyků a chcete podpořit její další vývoj a provoz serveru, můžete dobrovolně přispět libovolnou částkou přes platební QR kód. 
+Pokud vám aplikace šetří čas při přípravě na zkoušky nebo při studiu jazyků a chcete podpořit její další vývoj a provoz serveru, můžete dobrovolně přispět libovolnou částkou přes platební QR kód. 
         
-        Každá podpora pomůže pokrýt náklady na hosting a motivuje k přidávání dalších funkcí (včetně podpory novozákonní řečtiny). Děkuji!
+Každá podpora pomůže pokrýt náklady na hosting a motivuje k přidávání dalších funkcí (včetně podpory novozákonní řečtiny). Děkuji!
         """)
 
     with col2:
